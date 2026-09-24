@@ -2,19 +2,19 @@
    SAVINGS_ACCOUNT records (using valid plan_code FKs)
    ------------------------------------------------- */
 INSERT INTO SAVINGS_ACCOUNT (account_id, plan_code, balance, status, opened_date) VALUES
-    (1,  'CHILD',  0.00,    'ACTIVE', CURRENT_DATE),
-    (2,  'CHILD',  0.00,    'ACTIVE', CURRENT_DATE),
-    (3,  'CHILD',  0.00,    'ACTIVE', CURRENT_DATE),
-    (4,  'TEEN',   500.00,  'ACTIVE', CURRENT_DATE),
-    (5,  'TEEN',   500.00,  'ACTIVE', CURRENT_DATE),
-    (6,  'ADULT',  1000.00, 'ACTIVE', CURRENT_DATE),
-    (7,  'ADULT',  1200.00, 'ACTIVE', CURRENT_DATE),
-    (8,  'ADULT',  1500.00, 'ACTIVE', CURRENT_DATE),
-    (9,  'ADULT',  1100.00, 'ACTIVE', CURRENT_DATE),
-    (10, 'SENIOR', 1200.00, 'ACTIVE', CURRENT_DATE),
-    (11, 'SENIOR', 1300.00, 'ACTIVE', CURRENT_DATE),
-    (12, 'JOINT',  5000.00, 'ACTIVE', CURRENT_DATE),
-    (13, 'JOINT',  6000.00, 'ACTIVE', CURRENT_DATE);
+    (1,  'CHILD',  0.00,    'ACTIVE', '2023-01-15'),
+    (2,  'CHILD',  0.00,    'ACTIVE', '2023-03-20'),
+    (3,  'CHILD',  0.00,    'ACTIVE', '2023-06-10'),
+    (4,  'TEEN',   500.00,  'ACTIVE', '2022-11-05'),
+    (5,  'TEEN',   500.00,  'ACTIVE', '2023-02-14'),
+    (6,  'ADULT',  1000.00, 'ACTIVE', '2021-05-12'),
+    (7,  'ADULT',  1200.00, 'ACTIVE', '2022-08-25'),
+    (8,  'ADULT',  1500.00, 'ACTIVE', '2023-04-18'),
+    (9,  'ADULT',  1100.00, 'ACTIVE', '2023-09-01'),
+    (10, 'SENIOR', 1200.00, 'ACTIVE', '2020-01-10'),
+    (11, 'SENIOR', 1300.00, 'ACTIVE', '2020-11-30'),
+    (12, 'JOINT',  5000.00, 'ACTIVE', '2022-01-15'),
+    (13, 'JOINT',  6000.00, 'ACTIVE', '2022-06-20');
 
 /* -------------------------------------------------
    ACCOUNT_HOLDER bridge (roles: PRIMARY / SECONDARY)
