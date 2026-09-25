@@ -9,7 +9,7 @@ BEGIN
     IF NEW.status = 'ACTIVE' THEN
         SELECT COUNT(*) INTO active_fd_count
         FROM FIXED_DEPOSIT
-        WHERE account_no = NEW.account_no
+        WHERE account_id = NEW.account_id
           AND status = 'ACTIVE';
 
         IF active_fd_count > 0 THEN
