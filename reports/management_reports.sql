@@ -3,7 +3,7 @@
 
 DELIMITER $$
 
--- Report 1: Agent-wise transaction report
+-- This one counts how many transactions each agent did and the total amount, between two dates
 DROP PROCEDURE IF EXISTS RPT_AGENT_WISE_TRANSACTIONS$$
 CREATE PROCEDURE RPT_AGENT_WISE_TRANSACTIONS(
     IN p_start_date DATE,
