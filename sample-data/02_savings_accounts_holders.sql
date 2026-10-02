@@ -4,6 +4,11 @@
 -- =====================================================================
 USE mims;
 
+-- Session safeguards & transaction block
+SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS = 0;
+START TRANSACTION;
+
 -- Savings accounts linked to specific plans
 INSERT INTO SAVINGS_ACCOUNT (account_no, balance, open_date, status, plan_id) VALUES
 ('SA0000001', 0.00, '2024-01-15', 'ACTIVE', 1), -- Child account
@@ -40,3 +45,6 @@ INSERT INTO ACCOUNT_HOLDER (customer_id, account_id, role) VALUES
 (13, 12, 'SECONDARY'), -- Secondary owner
 (14, 13, 'PRIMARY'),   -- Primary owner
 (15, 13, 'SECONDARY'); -- Secondary owner
+
+SET FOREIGN_KEY_CHECKS = 1;
+COMMIT;
