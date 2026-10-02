@@ -204,11 +204,14 @@ BEGIN
     SELECT CAST(config_value AS DECIMAL(14,2)) INTO v_daily_limit
     FROM SYSTEM_CONFIG WHERE config_key = 'daily_withdrawal_limit';
 
+    -- FOR SHARE makes this a locking read. A plain SELECT reads an older snapshot from before the lock wait and could miss a withdrawal
+    -- another agent just committed, so two withdrawals at the same time could both pass the limit.
     SELECT COALESCE(SUM(amount), 0) INTO v_withdrawn
     FROM `TRANSACTION`
     WHERE account_id = p_account_id
       AND transaction_type = 'WITHDRAWAL'
-      AND DATE(txn_timestamp) = CURDATE();
+      AND DATE(txn_timestamp) = CURDATE()
+    FOR SHARE;
 
     IF v_withdrawn + p_amount > v_daily_limit THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Daily withdrawal limit exceeded';
