@@ -1,33 +1,37 @@
 -- =====================================================================
--- 01_branches_agents_customers.sql (Schema v3 Compatible)
+-- 01_branches_agents_customers.sql
+-- Sample data for Bank, Branches, Agents, and Customers
 -- =====================================================================
 USE mims;
 
--- 1. ORGANIZATION (1 row required)
+-- Bank organization details
 INSERT INTO ORGANIZATION (org_id, org_name, registration_no, license_no, head_office_address, established_date) VALUES
 (1, 'B-Trust Bank', 'REG-2020-001', 'LIC-2020-888', '123 Main Street, Colombo 03', '2020-01-01');
 
--- 2. BRANCH (3 branches, org_id linked)
+-- Bank branch locations
 INSERT INTO BRANCH (branch_id, branch_name, district, address, org_id) VALUES
 (1, 'Central Branch', 'Colombo', '100 Galle Road, Colombo 03', 1),
-(2, 'North Branch',   'Jaffna',  '45 Hospital St, Jaffna', 1),
-(3, 'South Branch',   'Galle',   '12 Main St, Galle', 1);
+(2, 'North Branch',   'Jaffna',  '45 Hospital St, Jaffna',    1),
+(3, 'South Branch',   'Galle',   '12 Main St, Galle',         1);
 
--- 3. AGENT (5 active agents)
+-- Bank agents assigned to branches
 INSERT INTO AGENT (agent_id, first_name, last_name, phone, email, status, branch_id) VALUES
 (1, 'Alice', 'Smith',   '0711111111', 'alice.smith@btrust.lk', 'ACTIVE', 1),
 (2, 'Bob',   'Johnson', '0722222222', 'bob.johnson@btrust.lk', 'ACTIVE', 1),
-(3, 'Carol', 'Lee',     '0733333333', 'carol.lee@btrust.lk',    'ACTIVE', 2),
-(4, 'David', 'Kim',     '0744444444', 'david.kim@btrust.lk',     'ACTIVE', 2),
-(5, 'Eve',   'Patel',   '0755555555', 'eve.patel@btrust.lk',     'ACTIVE', 3);
+(3, 'Carol', 'Lee',     '0733333333', 'carol.lee@btrust.lk',   'ACTIVE', 2),
+(4, 'David', 'Kim',     '0744444444', 'david.kim@btrust.lk',   'ACTIVE', 2),
+(5, 'Eve',   'Patel',   '0755555555', 'eve.patel@btrust.lk',   'ACTIVE', 3);
 
--- 4. CUSTOMER (15 customers, NIC for 18+, fixed DOBs, branch matches agent)
+-- Customer profiles (Minors without NIC and Adults with NIC)
 INSERT INTO CUSTOMER (customer_id, first_name, last_name, NIC, DOB, address, phone, email, registered_by_agent_id, registered_at_branch_id) VALUES
+-- Minor customers (Under 18 years)
 (1,  'Liam',      'Brown',     NULL,           '2018-05-10', '12 Lake Rd, Colombo',   '0700000001', 'liam@mail.com',    1, 1),
 (2,  'Mia',       'Davis',     NULL,           '2019-08-12', '34 Park Ave, Colombo',  '0700000002', 'mia@mail.com',     1, 1),
 (3,  'Noah',      'Miller',    NULL,           '2016-11-20', '56 Hill St, Colombo',   '0700000003', 'noah@mail.com',    2, 1),
 (4,  'Ethan',     'Wilson',    NULL,           '2010-03-15', '78 Station Rd, Colombo','0700000004', 'ethan@mail.com',   2, 1),
 (5,  'Olivia',    'Taylor',    NULL,           '2010-09-10', '90 Beach Rd, Jaffna',   '0700000005', 'olivia@mail.com',  3, 2),
+
+-- Adult customers (18 years and above)
 (6,  'James',     'Anderson',  '199210300100', '1992-04-12', '12 Main St, Jaffna',    '0700000006', 'james@mail.com',   3, 2),
 (7,  'Sophia',    'Thomas',    '199520400200', '1995-07-22', '34 Temple Rd, Jaffna',  '0700000007', 'sophia@mail.com',  3, 2),
 (8,  'Benjamin',  'Jackson',   '198830500300', '1988-12-05', '56 Cross St, Jaffna',   '0700000008', 'benjamin@mail.com',4, 2),
