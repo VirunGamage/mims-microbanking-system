@@ -1,3 +1,8 @@
+USE mims;
+
+DROP TRIGGER IF EXISTS trg_single_active_fd;
+DROP TRIGGER IF EXISTS trg_savings_balance_guard;
+
 DELIMITER $$
 
 CREATE TRIGGER trg_single_active_fd
