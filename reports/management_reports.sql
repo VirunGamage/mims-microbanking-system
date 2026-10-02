@@ -103,7 +103,7 @@ BEGIN
 END$$
 
 
--- Report 5: Customer activity report
+-- Shows each customer's deposits and withdrawals added up across all their accounts (handles joint accounts properly)
 DROP PROCEDURE IF EXISTS RPT_CUSTOMER_ACTIVITY$$
 CREATE PROCEDURE RPT_CUSTOMER_ACTIVITY(
     IN p_start_date DATE,
