@@ -79,7 +79,7 @@ WHERE fd.status = 'ACTIVE'
 ORDER BY fd.next_payout_date$$
 
 
--- Report 4: Monthly interest distribution
+-- Total interest paid out each month, grouped by which savings plan the account belongs to
 DROP PROCEDURE IF EXISTS RPT_MONTHLY_INTEREST_DISTRIBUTION$$
 CREATE PROCEDURE RPT_MONTHLY_INTEREST_DISTRIBUTION(
     IN p_year  INT,
