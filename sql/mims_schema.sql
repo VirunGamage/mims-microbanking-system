@@ -1,17 +1,17 @@
-
 -- InnoDB is the storage engine used for these tables. It supports foreign keys and enforces them properly.
 
+-- WARNING: this script DROPS the whole mims database if it exists. Running it wipes all existing data.
 DROP DATABASE IF EXISTS mims;
 CREATE DATABASE mims
-    DEFAULT CHARACTER SET utf8mb4   -- Uses utf8mb4 lets us store characters (and names/symbols/chacters) safely without corruption 
-    DEFAULT COLLATE utf8mb4_unicode_ci; -- Sorts and compares case insensitively.
+    DEFAULT CHARACTER SET utf8mb4   -- utf8mb4 lets us store all characters (names, symbols, emojis) safely without corruption
+    DEFAULT COLLATE utf8mb4_unicode_ci; -- Sorts and compares text case-insensitively (and accent-insensitively)
 USE mims;
 
-SET NAMES utf8mb4;  -- The pipe that connects the database and user is also set to the same data type
-SET FOREIGN_KEY_CHECKS = 1; -- This is automatically on, this is a explicit turn on. This checks if a record points to a existing record
-                            -- another table
+SET NAMES utf8mb4;  -- Sets the character set of the connection between the client and the database to utf8mb4 as well
+SET FOREIGN_KEY_CHECKS = 1; -- This is on by default, this is just an explicit turn on. It checks that a record points to an existing record
+                            -- in another table
 
--- Stores the banks own detials without hardcoding them
+-- Stores the bank's own details without hardcoding them
 -- Only one row will be here (B-Trust). Branch points to this
 CREATE TABLE ORGANIZATION (
     org_id              INT AUTO_INCREMENT PRIMARY KEY,
@@ -25,7 +25,7 @@ CREATE TABLE ORGANIZATION (
 ) ENGINE=InnoDB;
 
 -- Stores each physical branch of the bank.
--- Restricts deletes and updates on organization
+-- An organization cannot be deleted or have its ID changed while branches still reference it (RESTRICT)
 CREATE TABLE BRANCH (
     branch_id    INT AUTO_INCREMENT PRIMARY KEY,
     branch_name  VARCHAR(100) NOT NULL,
@@ -38,8 +38,9 @@ CREATE TABLE BRANCH (
         ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE=InnoDB;
 
-CREATE INDEX idx_branch_org_id ON BRANCH(org_id);   -- A performance helper because we will often ask for the branch table and this makes the
-                                                    -- scanning faster.
+-- InnoDB already creates an index on every foreign key column automatically, so this one is technically redundant.
+-- It is kept explicitly so the indexing is visible in the schema.
+CREATE INDEX idx_branch_org_id ON BRANCH(org_id);
 
 -- Stores every agent who has ever worked in this bank. Agents are never deleted and are handled by status so that past transactions have an agent.
 CREATE TABLE AGENT (
@@ -48,16 +49,17 @@ CREATE TABLE AGENT (
     last_name   VARCHAR(50) NOT NULL,
     phone       VARCHAR(20),
     email       VARCHAR(100),
-    status      ENUM('ACTIVE','ON_LEAVE','TRANSFERRED','TERMINATED')    -- ENUM prevents any other word typed here except these which reduce errors
-                NOT NULL DEFAULT 'ACTIVE', -- This field cannot be null, if it is left empty put default value "ACTIVE"
+    status      ENUM('ACTIVE','ON_LEAVE','TRANSFERRED','TERMINATED')    -- ENUM prevents any other word being typed here except these, which reduces errors
+                NOT NULL DEFAULT 'ACTIVE', -- This field cannot be null, if it is left empty the default value "ACTIVE" is used
     branch_id   INT NOT NULL,
 
-    -- This was added to avoid transfer collisions of emails, this is to copy to email_in_service only if the row has "ACTIVE" 
-    -- or "ON-LEAVE", else it will default to "NULL".
-    -- STORED actually stores the value in disk rather than VIRTUAL (default way) which would create it always. This is needed becayse the
-    -- email_in_service is unique.
+    -- This was added to avoid email collisions when agents transfer. It copies email into email_in_service only if the status is
+    -- "ACTIVE" or "ON_LEAVE", otherwise it is NULL. The UNIQUE constraint ignores NULLs, so a TRANSFERRED or TERMINATED agent
+    -- no longer blocks their old email from being reused.
+    -- STORED means the computed value is saved on disk when the row is written, whereas VIRTUAL (the default) is computed
+    -- each time the row is read.
     email_in_service VARCHAR(100)
-        GENERATED ALWAYS AS (CASE WHEN status IN ('ACTIVE','ON_LEAVE') THEN email END) STORED,  
+        GENERATED ALWAYS AS (CASE WHEN status IN ('ACTIVE','ON_LEAVE') THEN email END) STORED,
     CONSTRAINT uq_agent_email_in_service UNIQUE (email_in_service),
 
     CONSTRAINT fk_agent_branch
@@ -65,8 +67,9 @@ CREATE TABLE AGENT (
         ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE=InnoDB;
 
--- Indexes made to make lookups faster for branch_id and status
-CREATE INDEX idx_agent_branch_id ON AGENT(branch_id);  
+-- Indexes for branch_id and status lookups.
+-- idx_agent_branch_id is technically redundant because InnoDB auto-indexes foreign key columns, it is kept for clarity.
+CREATE INDEX idx_agent_branch_id ON AGENT(branch_id);
 CREATE INDEX idx_agent_status    ON AGENT(status);
 
 -- Everyone the bank has registered as a customer, whether they hold accounts alone or jointly with others.
@@ -75,14 +78,14 @@ CREATE TABLE CUSTOMER (
     first_name              VARCHAR(50) NOT NULL,
     last_name               VARCHAR(50) NOT NULL,
 
-    -- NIC will be asked to be inputed by the UI when a teenage becomes 18 yo.
-    NIC                     VARCHAR(12),    -- Can be NULL because of children and teens accounts who might not have an NIC yet
+    -- NIC will be asked for by the UI when a teenager turns 18.
+    NIC                     VARCHAR(12),    -- Can be NULL because children and teens might not have an NIC yet
     DOB                     DATE NOT NULL,
     address                 VARCHAR(150),
     phone                   VARCHAR(20),
     email                   VARCHAR(100),
-    registered_by_agent_id  INT NOT NULL,   -- An historical record, to know which agent registered the customer
-    registered_at_branch_id INT NOT NULL,   -- An historical record, to know which branch the customer registered at
+    registered_by_agent_id  INT NOT NULL,   -- A historical record, to know which agent registered the customer
+    registered_at_branch_id INT NOT NULL,   -- A historical record, to know which branch the customer registered at
     CONSTRAINT uq_customer_nic UNIQUE (NIC),
     CONSTRAINT chk_customer_dob_floor CHECK (DOB >= '1900-01-01'),  -- DOB cannot be unrealistic
     CONSTRAINT fk_customer_registering_agent
@@ -93,7 +96,8 @@ CREATE TABLE CUSTOMER (
         ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE=InnoDB;
 
--- Indexes made to make lookups faster for registered_by_agent_id and registered_at_branch_id
+-- Indexes on registered_by_agent_id and registered_at_branch_id.
+-- Both are foreign key columns, so InnoDB would auto-index them anyway, they are kept explicitly for clarity.
 CREATE INDEX idx_customer_registering_agent ON CUSTOMER(registered_by_agent_id);
 CREATE INDEX idx_customer_registered_branch ON CUSTOMER(registered_at_branch_id);
 
@@ -144,7 +148,7 @@ CREATE TABLE SAVINGS_ACCOUNT (
     account_no   VARCHAR(20)   NOT NULL,
     balance      DECIMAL(14,2) NOT NULL DEFAULT 0.00,
     open_date    DATE          NOT NULL DEFAULT (CURRENT_DATE),
-    next_interest_date DATE,    -- Needed to avoid double posting of intrest
+    next_interest_date DATE,    -- Needed to avoid double posting of interest
     status       ENUM('ACTIVE','CLOSED','FROZEN') NOT NULL DEFAULT 'ACTIVE',
     plan_id      INT NOT NULL,
     CONSTRAINT uq_account_no UNIQUE (account_no),
@@ -155,11 +159,14 @@ CREATE TABLE SAVINGS_ACCOUNT (
         ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE=InnoDB;
 
--- Indexes made to make lookups faster for plan_id and status
+-- Indexes for plan_id and status lookups.
+-- idx_account_plan_id is technically redundant (InnoDB auto-indexes foreign key columns), kept for clarity.
+-- idx_account_status is also covered by idx_account_status_interest below, since MySQL can use the leftmost
+-- column of a composite index, it is kept for clarity.
 CREATE INDEX idx_account_plan_id ON SAVINGS_ACCOUNT(plan_id);
 CREATE INDEX idx_account_status  ON SAVINGS_ACCOUNT(status);
 -- This one is for the interest posting job specifically, it needs to find all ACTIVE accounts whose
--- next_interest_date is due, so indexing both columns together makes tht search fast
+-- next_interest_date is due, so indexing both columns together makes that search fast
 CREATE INDEX idx_account_status_interest ON SAVINGS_ACCOUNT(status, next_interest_date);
 
 -- Links customers to the savings accounts they hold. One row per customer per account, so a joint
@@ -177,25 +184,27 @@ CREATE TABLE ACCOUNT_HOLDER (
         ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE=InnoDB;
 
-CREATE INDEX idx_holder_account_id ON ACCOUNT_HOLDER(account_id);   -- Performance helper for looking up all holders of an account
+-- For looking up all holders of an account. The primary key only helps when searching by customer_id first, so this
+-- index covers the account_id side (it is also a foreign key column, which InnoDB would auto-index anyway).
+CREATE INDEX idx_holder_account_id ON ACCOUNT_HOLDER(account_id);
 
 -- Stores every fixed deposit. Each FD is funded from a savings account and gets paid back into the
 -- same account when it matures or is closed early.
 CREATE TABLE FIXED_DEPOSIT (
     fd_id             INT AUTO_INCREMENT PRIMARY KEY,
     amount            DECIMAL(14,2) NOT NULL,
-    interest_rate     DECIMAL(5,2)  NOT NULL,   -- Snapshot of the plan's rate at the time, so later rate changes dont affect this FD
+    interest_rate     DECIMAL(5,2)  NOT NULL,   -- Snapshot of the plan's rate at the time, so later rate changes don't affect this FD
     start_date        DATE NOT NULL,
     maturity_date     DATE NOT NULL,
     status            ENUM('ACTIVE','MATURED','CLOSED') NOT NULL DEFAULT 'ACTIVE',
-    next_payout_date  DATE,    -- Same reason as next_interest_date on SAVINGS_ACCOUNT, needed to avoid double posting of intrest
+    next_payout_date  DATE,    -- Same reason as next_interest_date on SAVINGS_ACCOUNT, needed to avoid double posting of interest
     close_date        DATE,
     account_id        INT NOT NULL,
     fd_plan_id        INT NOT NULL,
     CONSTRAINT chk_fd_amount_positive CHECK (amount > 0),   -- Cannot open an FD with 0 or negative amount
     CONSTRAINT chk_fd_rate_positive   CHECK (interest_rate > 0),   -- Rate cannot be 0 or negative
     CONSTRAINT chk_fd_dates           CHECK (maturity_date > start_date),   -- Maturity has to be after the start, not the same day or before
-    CONSTRAINT chk_fd_close_date      CHECK (close_date IS NULL OR close_date >= start_date),   -- Cant close before it even started
+    CONSTRAINT chk_fd_close_date      CHECK (close_date IS NULL OR close_date >= start_date),   -- Can't close before it even started
     CONSTRAINT fk_fd_account
         FOREIGN KEY (account_id) REFERENCES SAVINGS_ACCOUNT(account_id)
         ON DELETE RESTRICT ON UPDATE RESTRICT,
@@ -204,6 +213,7 @@ CREATE TABLE FIXED_DEPOSIT (
         ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE=InnoDB;
 
+-- account_id and fd_plan_id are foreign key columns, so InnoDB would auto-index them anyway, these are kept for clarity.
 CREATE INDEX idx_fd_account_id    ON FIXED_DEPOSIT(account_id);
 CREATE INDEX idx_fd_plan_id       ON FIXED_DEPOSIT(fd_plan_id);
 -- Same idea as idx_account_status_interest, this is for the FD interest job to quickly find ACTIVE
@@ -234,7 +244,7 @@ CREATE TABLE `TRANSACTION` (
         (channel = 'BRANCH' AND processed_by_agent_id IS NOT NULL)
         OR
         (channel <> 'BRANCH' AND processed_by_agent_id IS NULL)
-    ),   -- If its a BRANCH transaction it must have an agent, if its any other channel it must not
+    ),   -- If it's a BRANCH transaction it must have an agent, if it's any other channel it must not
     CONSTRAINT chk_txn_fd_link CHECK (
         (transaction_type IN ('FD_OPEN','FD_INTEREST','FD_CLOSURE') AND fd_id IS NOT NULL)
         OR
@@ -258,10 +268,10 @@ CREATE TABLE `TRANSACTION` (
 CREATE INDEX idx_txn_account_date ON `TRANSACTION`(account_id, txn_timestamp);   -- Get an account's transaction history in order
 CREATE INDEX idx_txn_agent_date   ON `TRANSACTION`(processed_by_agent_id, txn_timestamp);   -- Get an agent's processed transactions in order
 CREATE INDEX idx_txn_type_date    ON `TRANSACTION`(transaction_type, txn_timestamp);   -- Filter by type (eg. all SAVINGS_INTEREST postings)
-CREATE INDEX idx_txn_fd_id        ON `TRANSACTION`(fd_id);   -- Get all transactions tied to one FD
+CREATE INDEX idx_txn_fd_id        ON `TRANSACTION`(fd_id);   -- Get all transactions tied to one FD (fd_id is a foreign key, so InnoDB would auto-index it anyway, kept for clarity)
 
 -- Holds bank wide settings as key value pairs so things like business hours and interest cycle
--- lengths arent hardcoded anywhere, they can just be looked up from here
+-- lengths aren't hardcoded anywhere, they can just be looked up from here
 CREATE TABLE SYSTEM_CONFIG (
     config_key    VARCHAR(50)  PRIMARY KEY,
     config_value  VARCHAR(100) NOT NULL,
@@ -285,12 +295,12 @@ INSERT INTO SYSTEM_CONFIG (config_key, config_value, description) VALUES
 
 DELIMITER $$
 
--- Before a new customer row is added, checks two things: DOB isnt in the future, and if the customer
+-- Before a new customer row is added, checks two things: DOB isn't in the future, and if the customer
 -- is already 18+ they must have an NIC (kids/teens are allowed to have NULL)
 CREATE TRIGGER trg_customer_bi BEFORE INSERT ON CUSTOMER
 FOR EACH ROW
 BEGIN
-    IF NEW.DOB > CURDATE() THEN   -- DOB cant be in the future
+    IF NEW.DOB > CURDATE() THEN   -- DOB can't be in the future
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Date of birth cannot be in the future';
     END IF;
     IF NEW.NIC IS NULL AND TIMESTAMPDIFF(YEAR, NEW.DOB, CURDATE()) >= 18 THEN   -- Age is calculated from DOB, not stored
@@ -311,8 +321,8 @@ BEGIN
     END IF;
 END$$
 
--- Before a new transaction is added, if its a BRANCH transaction it checks the agent processing it
--- is actually ACTIVE right now (an ON_LEAVE/TRANSFERRED/TERMINATED agent shouldnt be able to process one)
+-- Before a new transaction is added, if it's a BRANCH transaction it checks the agent processing it
+-- is actually ACTIVE right now (an ON_LEAVE/TRANSFERRED/TERMINATED agent shouldn't be able to process one)
 CREATE TRIGGER trg_transaction_bi BEFORE INSERT ON `TRANSACTION`
 FOR EACH ROW
 BEGIN
@@ -322,12 +332,12 @@ BEGIN
     END IF;
 END$$
 
-CREATE TRIGGER trg_agent_branch_lock BEFORE UPDATE ON AGENT -- Before any update on an agent column this is checked.
-FOR EACH ROW    -- Matters if more than one change occurs at a time
+-- Runs before every UPDATE on the AGENT table and stops an agent's branch_id from being changed.
+CREATE TRIGGER trg_agent_branch_lock BEFORE UPDATE ON AGENT
+FOR EACH ROW    -- The trigger runs once for every row the UPDATE touches (an UPDATE hitting 10 agents fires it 10 times)
 BEGIN
-    IF NEW.branch_id <> OLD.branch_id THEN  -- If an update on branch_id is made (it is getting changed) then output an error
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'An agent record cannot move branches; create a new agent record instead';   -- Refuse the change
-        -- and output the error message
+    IF NEW.branch_id <> OLD.branch_id THEN  -- branch_id is being changed, so refuse the update
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'An agent record cannot move branches; create a new agent record instead';   -- Raises this error message and cancels the change
     END IF;
 END$$
 
