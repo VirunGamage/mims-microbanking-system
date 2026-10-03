@@ -86,6 +86,10 @@ BEGIN
     COMMIT;
 END$$
 
+-- Matures every ACTIVE FD whose maturity date has come: status MATURED, close date = maturity date and the principal goes back to the savings account as an FD_CLOSURE (channel SYSTEM).
+-- Each FD is its own unit of work, so if one fails the earlier ones stay matured and the procedure can simply be run again.
+-- An FD whose last interest payout is not posted yet is skipped and picked up on the next run, so that payout is never lost.
+
 CREATE PROCEDURE PROC_PROCESS_FD_MATURITY ()
 BEGIN
     DECLARE done INT DEFAULT 0;
@@ -102,7 +106,8 @@ BEGIN
           AND maturity_date <= CURDATE()
           AND (next_payout_date IS NULL OR next_payout_date > maturity_date);
     DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
-
+    
+    -- Same clean up as in PROC_CLOSE_FIXED_DEPOSIT.
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         SET @allow_balance_update = 0;
@@ -120,6 +125,8 @@ BEGIN
 
         START TRANSACTION;
 
+        -- Checked again under a lock because the FD may have been closed early since the cursor opened.
+        -- Stops the principal being paid back twice.
         SELECT COUNT(*) INTO v_still_active
         FROM FIXED_DEPOSIT
         WHERE fd_id = v_fd_id AND status = 'ACTIVE'
