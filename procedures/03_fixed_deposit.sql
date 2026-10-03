@@ -1,9 +1,16 @@
+-- Fixed Deposit closure and maturity (REQ-FD-06, REQ-FD-08). Both pay the principal back into the savings account as an FD_CLOSURE transaction.
+-- Needs mims_schema.sql, the trg_savings_balance_guard trigger (04_triggers.sql) and PROC_NEXT_TXN_REF (01_deposit_withdrawal.sql).
+-- PROC_PROCESS_FD_MATURITY has to run after PROC_RUN_FD_INTEREST (07_interest_posting.sql).
+
 USE mims;
 
 DROP PROCEDURE IF EXISTS PROC_CLOSE_FIXED_DEPOSIT;
 DROP PROCEDURE IF EXISTS PROC_PROCESS_FD_MATURITY;
 
 DELIMITER $$
+
+-- Closes an ACTIVE FD early. Only the PRIMARY holder can do it. 
+--The principal goes back to the savings balance and the interest of the unfinished 30 day cycle is forfeited, no penalty (REQ-FD-08).
 
 CREATE PROCEDURE PROC_CLOSE_FIXED_DEPOSIT (
     IN p_fd_id INT,
@@ -16,6 +23,9 @@ BEGIN
     DECLARE v_status VARCHAR(10) DEFAULT NULL;
     DECLARE v_is_primary INT;
     DECLARE v_ref_no VARCHAR(30);
+
+    -- If anything fails, turn the balance guard back on, undo every change made so far and pass the error to the caller.
+    -- The flag has to be reset here because ROLLBACK does not undo session variables.
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -32,7 +42,7 @@ BEGIN
     WHERE fd_id = p_fd_id
     FOR UPDATE;
 
-    IF v_status IS NULL THEN
+    IF v_status IS NULL THEN   -- No row came back, so the FD does not exist.
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Fixed Deposit not found';
     END IF;
 
@@ -56,8 +66,9 @@ BEGIN
         next_payout_date = NULL
     WHERE fd_id = p_fd_id;
 
-    CALL PROC_NEXT_TXN_REF(v_ref_no);
+    CALL PROC_NEXT_TXN_REF(v_ref_no);  -- Same TXN + 7 digits format as every other transaction.
 
+    -- Guard flag is on only for this one UPDATE, see PROC_PROCESS_DEPOSIT.
     SET @allow_balance_update = 1;
     UPDATE SAVINGS_ACCOUNT
     SET balance = balance + v_amount
