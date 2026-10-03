@@ -1,7 +1,7 @@
--- =====================================================================
 -- 01_branches_agents_customers.sql
 -- Sample data for Bank, Branches, Agents, and Customers
--- =====================================================================
+
+-- choose database
 USE mims;
 
 -- Session safeguards & transaction block
