@@ -1,0 +1,16 @@
+# This file specifies which files and directories Git should ignore and not track.
+# Installed packages and build output: recreated by "npm ci" and "npm run build", never committed
+node_modules/
+dist/
+coverage/
+
+# Local settings that hold passwords: never committed (backend/.env.example is the template)
+.env
+.env.*
+!.env.example
+
+# Logs and operating-system clutter
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
