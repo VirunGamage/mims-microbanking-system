@@ -29,8 +29,8 @@ END$$
 
 DELIMITER ;
 
--- Blocks any direct UPDATE that changes SAVINGS_ACCOUNT.balance unless the procedure doing it has set the @allow_balance_update flag first (REQ-TXN-04). Stops a bug or a bypass from
--- silently changing a balance without a matching TRANSACTION row.
+-- Blocks any direct UPDATE that changes SAVINGS_ACCOUNT.balance unless the procedure doing it has set the @allow_balance_update flag first (REQ-TXN-04).
+-- Stops a bug or a bypass from silently changing a balance without a matching TRANSACTION row.
 
 DELIMITER $$
 
