@@ -1,0 +1,7 @@
+# Git stores text files with LF line endings and converts them for each person's computer, so Windows and Mac
+# users don't fight over line endings. Fonts and images are marked binary so Git never touches them.
+* text=auto
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary

@@ -3,7 +3,7 @@
 
 DELIMITER $$
 
--- Report 1: Agent-wise transaction report
+-- This one counts how many transactions each agent did and the total amount, between two dates
 DROP PROCEDURE IF EXISTS RPT_AGENT_WISE_TRANSACTIONS$$
 CREATE PROCEDURE RPT_AGENT_WISE_TRANSACTIONS(
     IN p_start_date DATE,
@@ -27,7 +27,7 @@ BEGIN
 END$$
 
 
--- Report 2: Account-wise transaction summary
+-- This shows total deposits, withdrawals and interest for each account, plus current balance
 DROP PROCEDURE IF EXISTS RPT_ACCOUNT_WISE_SUMMARY$$
 CREATE PROCEDURE RPT_ACCOUNT_WISE_SUMMARY(
     IN p_branch_id INT
