@@ -1,9 +1,16 @@
+-- Fixed Deposit closure and maturity (REQ-FD-06, REQ-FD-08). Both pay the principal back into the savings account as an FD_CLOSURE transaction.
+-- Needs mims_schema.sql, the trg_savings_balance_guard trigger (04_triggers.sql) and PROC_NEXT_TXN_REF (01_deposit_withdrawal.sql).
+-- PROC_PROCESS_FD_MATURITY has to run after PROC_RUN_FD_INTEREST (07_interest_posting.sql).
+
 USE mims;
 
 DROP PROCEDURE IF EXISTS PROC_CLOSE_FIXED_DEPOSIT;
 DROP PROCEDURE IF EXISTS PROC_PROCESS_FD_MATURITY;
 
 DELIMITER $$
+
+-- Closes an ACTIVE FD early. Only the PRIMARY holder can do it. 
+-- The principal goes back to the savings balance and the interest of the unfinished 30 day cycle is forfeited, no penalty (REQ-FD-08).
 
 CREATE PROCEDURE PROC_CLOSE_FIXED_DEPOSIT (
     IN p_fd_id INT,
@@ -16,6 +23,9 @@ BEGIN
     DECLARE v_status VARCHAR(10) DEFAULT NULL;
     DECLARE v_is_primary INT;
     DECLARE v_ref_no VARCHAR(30);
+
+    -- If anything fails, turn the balance guard back on, undo every change made so far and pass the error to the caller.
+    -- The flag has to be reset here because ROLLBACK does not undo session variables.
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
@@ -32,7 +42,7 @@ BEGIN
     WHERE fd_id = p_fd_id
     FOR UPDATE;
 
-    IF v_status IS NULL THEN
+    IF v_status IS NULL THEN   -- No row came back, so the FD does not exist.
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Fixed Deposit not found';
     END IF;
 
@@ -56,8 +66,9 @@ BEGIN
         next_payout_date = NULL
     WHERE fd_id = p_fd_id;
 
-    CALL PROC_NEXT_TXN_REF(v_ref_no);
+    CALL PROC_NEXT_TXN_REF(v_ref_no);  -- Same TXN + 7 digits format as every other transaction.
 
+    -- Guard flag is on only for this one UPDATE, see PROC_PROCESS_DEPOSIT.
     SET @allow_balance_update = 1;
     UPDATE SAVINGS_ACCOUNT
     SET balance = balance + v_amount
@@ -75,6 +86,10 @@ BEGIN
     COMMIT;
 END$$
 
+-- Matures every ACTIVE FD whose maturity date has come: status MATURED, close date = maturity date and the principal goes back to the savings account as an FD_CLOSURE (channel SYSTEM).
+-- Each FD is its own unit of work, so if one fails the earlier ones stay matured and the procedure can simply be run again.
+-- An FD whose last interest payout is not posted yet is skipped and picked up on the next run, so that payout is never lost.
+
 CREATE PROCEDURE PROC_PROCESS_FD_MATURITY ()
 BEGIN
     DECLARE done INT DEFAULT 0;
@@ -91,7 +106,8 @@ BEGIN
           AND maturity_date <= CURDATE()
           AND (next_payout_date IS NULL OR next_payout_date > maturity_date);
     DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
-
+    
+    -- Same clean up as in PROC_CLOSE_FIXED_DEPOSIT.
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         SET @allow_balance_update = 0;
@@ -109,6 +125,8 @@ BEGIN
 
         START TRANSACTION;
 
+        -- Checked again under a lock because the FD may have been closed early since the cursor opened.
+        -- Stops the principal being paid back twice.
         SELECT COUNT(*) INTO v_still_active
         FROM FIXED_DEPOSIT
         WHERE fd_id = v_fd_id AND status = 'ACTIVE'

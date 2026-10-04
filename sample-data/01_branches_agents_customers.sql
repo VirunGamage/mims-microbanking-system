@@ -1,8 +1,13 @@
--- =====================================================================
 -- 01_branches_agents_customers.sql
 -- Sample data for Bank, Branches, Agents, and Customers
--- =====================================================================
+
+-- choose database
 USE mims;
+
+-- Session safeguards & transaction block
+SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS = 0;
+START TRANSACTION;
 
 -- Bank organization details
 INSERT INTO ORGANIZATION (org_id, org_name, registration_no, license_no, head_office_address, established_date) VALUES
@@ -42,3 +47,6 @@ INSERT INTO CUSTOMER (customer_id, first_name, last_name, NIC, DOB, address, pho
 (13, 'Harper',    'Garcia',    '198781000800', '1987-10-10', '56 Sea St, Colombo',    '0700000013', 'harper@mail.com',   1, 1),
 (14, 'Mason',     'Martinez',  '198391100900', '1983-11-11', '78 High St, Colombo',   '0700000014', 'mason@mail.com',    2, 1),
 (15, 'Ella',      'Robinson',  '198601200100', '1986-04-05', '78 High St, Colombo',   '0700000015', 'ella@mail.com',     2, 1);
+
+SET FOREIGN_KEY_CHECKS = 1;
+COMMIT;

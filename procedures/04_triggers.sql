@@ -1,3 +1,6 @@
+-- Two triggers: only one ACTIVE FD per savings account and no direct edits of a savings balance (REQ-FD-02, REQ-TXN-04).
+-- Needs mims_schema.sql. Load it AFTER the sample data because the sample data updates balances directly and the balance guard would block that.
+
 USE mims;
 
 DROP TRIGGER IF EXISTS trg_single_active_fd;
@@ -25,6 +28,9 @@ BEGIN
 END$$
 
 DELIMITER ;
+
+-- Blocks any direct UPDATE that changes SAVINGS_ACCOUNT.balance unless the procedure doing it has set the @allow_balance_update flag first (REQ-TXN-04).
+-- Stops a bug or a bypass from silently changing a balance without a matching TRANSACTION row.
 
 DELIMITER $$
 
