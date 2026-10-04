@@ -10,7 +10,7 @@ DROP PROCEDURE IF EXISTS PROC_PROCESS_FD_MATURITY;
 DELIMITER $$
 
 -- Closes an ACTIVE FD early. Only the PRIMARY holder can do it. 
---The principal goes back to the savings balance and the interest of the unfinished 30 day cycle is forfeited, no penalty (REQ-FD-08).
+-- The principal goes back to the savings balance and the interest of the unfinished 30 day cycle is forfeited, no penalty (REQ-FD-08).
 
 CREATE PROCEDURE PROC_CLOSE_FIXED_DEPOSIT (
     IN p_fd_id INT,
