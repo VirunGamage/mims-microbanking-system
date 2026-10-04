@@ -27,7 +27,7 @@ BEGIN
 END$$
 
 
--- Report 2: Account-wise transaction summary
+-- This shows total deposits, withdrawals and interest for each account, plus current balance
 DROP PROCEDURE IF EXISTS RPT_ACCOUNT_WISE_SUMMARY$$
 CREATE PROCEDURE RPT_ACCOUNT_WISE_SUMMARY(
     IN p_branch_id INT
