@@ -1,0 +1,61 @@
+/* Design tokens: every colour, font, size and spacing value the app uses, in one place. Owner: Shanuja.
+   Deep green and warm grey. Three shades were darkened from the first palette so small text passes WCAG AA contrast:
+   slate-500 #6B7772 -> #5F6B66, success #1B7F4C -> #176E44, warning #A85F00 -> #975500.
+   This file keeps all the colours, fonts, text sizes and spacing of the app in one place, so the other CSS files can reuse them. */
+:root {
+  /* Greens */
+  --pine-900: #0c3a34; /* sidebar, headings */
+  --pine-700: #114f46;
+  --pine-600: #17695d; /* primary buttons and links */
+  --moss-100: #e4efea; /* hover and selected rows */
+  --moss-50: #f1f6f3;
+
+  /* Warm greys */
+  --paper: #f2f2ee; /* page background */
+  --surface: #ffffff; /* panels and inputs */
+  --slate-700: #3a4541; /* body text */
+  --slate-500: #5f6b66; /* helper text */
+  --rule: #d5dad6; /* decorative lines */
+  --field-border: #7e8883; /* input borders (3:1 against white and paper) */
+
+  /* Signals: only for state, never decoration */
+  --success: #176e44;
+  --success-bg: #e8f4ec;
+  --warning: #975500;
+  --warning-bg: #fbf1e3;
+  --error: #b3261e;
+  --error-bg: #fcedeb;
+  --info: #1d5f9e;
+  --info-bg: #e9f0f8;
+
+  /* The passbook ledger */
+  --passbook: #fbfaf4;
+  --passbook-rule: #c8d6cf;
+  --passbook-ink: #22312c;
+
+  /* Focus ring: light on dark surfaces, green on light ones */
+  --focus: #17695d;
+  --focus-on-dark: #8fd0c0;
+
+  /* Type */
+  --font-sans: 'Source Sans 3 Variable', 'Source Sans 3', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.625rem;
+  --text-2xl: 2.125rem;
+
+  /* Space and shape */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --radius: 4px;
+  --measure: 72ch; /* longest comfortable line of text */
+  --sidebar-width: 15rem;
+}
