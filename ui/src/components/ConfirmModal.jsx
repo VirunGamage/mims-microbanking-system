@@ -1,6 +1,6 @@
 // A "are you sure?" dialog for actions that can't be undone (closing an FD, running interest). Owner: Shanuja.
 // It uses the browser's own <dialog>, which keeps keyboard focus inside and closes with Escape.
-// TODO(Shanuja): add your own explanation of this file here.
+// This is the reusable confirmation popup. The page passes in the title, the message and what the buttons do and it blocks the action until the user confirms or cancels.
 import { useEffect, useId, useRef } from 'react';
 
 export default function ConfirmModal({
