@@ -1,0 +1,38 @@
+/* Styles for the Open Account page's plan preview. Owner: Sameera.
+   Everything else on the Customers and Open Account pages uses the shared classes in global.css.
+   Custom CSS styles specifically for the savings plan preview box on the Open Account page. */
+
+/* The plan the database is expected to choose, shown before the account is opened. */
+.plan-preview {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  background: var(--moss-100);
+  max-width: 32rem;
+}
+
+.plan-preview p {
+  margin: 0;
+}
+
+.plan-preview__label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--slate-700);
+}
+
+.plan-preview__name {
+  font-size: var(--text-lg);
+  font-weight: 650;
+  color: var(--pine-900);
+}
+
+.plan-preview__terms {
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--slate-700);
+}
+
+.plan-preview__reason {
+  font-size: var(--text-sm);
+  color: var(--slate-700);
+}
