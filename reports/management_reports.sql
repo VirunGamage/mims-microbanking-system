@@ -58,7 +58,7 @@ BEGIN
 END$$
 
 
--- Report 3: Active FD payout schedule
+-- This shows each active fixed deposit with its term, maturity date and next payout date
 DROP VIEW IF EXISTS VW_ACTIVE_FD_PAYOUT_SCHEDULE$$
 CREATE VIEW VW_ACTIVE_FD_PAYOUT_SCHEDULE AS
 SELECT
