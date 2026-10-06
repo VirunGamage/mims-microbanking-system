@@ -1,0 +1,154 @@
+/* The report charts: hand-built SVG with a recessive grid, thin marks and a hover/focus tooltip. Owner: Rukshi.
+   Two series colours (checked for colour-blind separation and 3:1 contrast on white); all text uses the normal text colours.
+   This stylesheet defines the shared layout, colours, axes, bars, timeline marks, and tooltip styling used by the report charts. */
+
+:root {
+  --chart-1: #178a74; /* first series: teal green */
+  --chart-2: #c86b2a; /* second series: burnt orange */
+  --chart-span: #9fd0c2; /* a fixed deposit's term on the timeline (context only) */
+  --chart-grid: #e3e6e2;
+  --chart-axis: #c3c9c5;
+}
+
+.chart {
+  position: relative;
+  margin: var(--space-4) 0;
+}
+
+.chart svg {
+  display: block;
+  overflow: visible;
+}
+
+.chart__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-sm);
+  color: var(--slate-700);
+}
+
+.chart__legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.chart__key {
+  display: inline-block;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 2px;
+}
+
+.chart__key--line {
+  height: 0.4rem;
+  border-radius: 999px;
+}
+
+.chart__key--dot {
+  border-radius: 50%;
+}
+
+.chart text {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  fill: var(--slate-500);
+}
+
+.chart .chart__label {
+  font-size: 13px;
+  fill: var(--slate-700);
+}
+
+.chart .chart__value {
+  font-size: 12px;
+  fill: var(--slate-700);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart__grid {
+  stroke: var(--chart-grid);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.chart__baseline {
+  stroke: var(--chart-axis);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.chart__mark {
+  cursor: default;
+  outline: none;
+}
+
+.chart__mark:hover .chart__fill,
+.chart__mark:focus-visible .chart__fill {
+  opacity: 0.8;
+}
+
+.chart__mark:focus-visible .chart__hit {
+  stroke: var(--focus);
+  stroke-width: 2;
+}
+
+.chart__hit {
+  fill: transparent;
+}
+
+.chart__today {
+  stroke: var(--slate-500);
+  stroke-width: 1;
+}
+
+.chart-tooltip {
+  position: absolute;
+  z-index: 5;
+  min-width: 10rem;
+  max-width: 18rem;
+  transform: translate(-50%, calc(-100% - 10px));
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 2px 8px rgba(12, 58, 52, 0.12);
+  font-size: var(--text-sm);
+  color: var(--slate-700);
+  pointer-events: none;
+}
+
+.chart-tooltip__title {
+  margin: 0 0 var(--space-1);
+  font-weight: 600;
+  color: var(--pine-900);
+}
+
+.chart-tooltip__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.chart-tooltip__row strong {
+  font-variant-numeric: tabular-nums;
+  color: var(--pine-900);
+}
+
+.chart-tooltip__key {
+  display: inline-block;
+  width: 0.9rem;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.chart__note {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--slate-500);
+}
