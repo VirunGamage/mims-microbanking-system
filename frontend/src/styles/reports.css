@@ -1,0 +1,128 @@
+/* Styles for the Reports and Data Checks pages: the report tabs, the filter row and the toolbar above each table.
+   Owner: Rukshi. The charts have their own file, charts.css.
+   This stylesheet defines the layout and presentation used by the management Reports page. */
+
+.report-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-5);
+  border-bottom: 1px solid var(--rule);
+}
+
+.report-tabs__tab {
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-bottom: 3px solid transparent;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--slate-700);
+  cursor: pointer;
+}
+
+.report-tabs__tab:hover {
+  color: var(--pine-900);
+  background: var(--moss-50);
+}
+
+.report-tabs__tab[aria-current='page'] {
+  color: var(--pine-900);
+  border-bottom-color: var(--pine-600);
+}
+
+.report-source {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+/* One row of filters above the report they apply to. */
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.filter-row label {
+  display: grid;
+  gap: var(--space-1);
+  font-weight: 600;
+  color: var(--pine-900);
+}
+
+.filter-row__note {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--slate-500);
+  align-self: center;
+}
+
+.report-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.report-count {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--slate-500);
+}
+
+/* New figures are loading: keep the old ones on screen, dimmed, instead of flashing an empty space. */
+.report-body.is-loading {
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
+
+.chart-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  border: 0;
+  font-size: var(--text-sm);
+}
+
+.chart-switch legend {
+  float: left;
+  margin-right: var(--space-2);
+  padding: 0;
+  font-weight: 600;
+  color: var(--pine-900);
+}
+
+.chart-switch label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.chart-switch input {
+  min-height: 0;
+  accent-color: var(--pine-600);
+}
+
+/* Data Checks */
+.check-panel + .check-panel {
+  margin-top: var(--space-5);
+}
+
+.check-panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.run-interest {
+  margin-top: var(--space-6);
+  border-top: 4px solid var(--warning);
+}
