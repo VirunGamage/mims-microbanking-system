@@ -1,0 +1,176 @@
+/* The passbook ledger: cream paper, ruled lines, a stitched binding on the left and figures set in a monospaced
+   face, like the printed passbook a customer carries. Used by components/accounts/Passbook.jsx. */
+
+/* Styles the passbook ledger,balances and transaction rows for clear reading.*/
+.passbook {
+  position: relative;
+  margin-top: var(--space-6);
+  background: var(--passbook);
+  color: var(--passbook-ink);
+  border: 1px solid var(--passbook-rule);
+  border-left: 0.75rem solid var(--pine-900);
+  border-radius: 2px var(--radius) var(--radius) 2px;
+  padding: var(--space-4) var(--space-5) var(--space-3);
+}
+
+/* The stitching along the binding. */
+.passbook::before {
+  content: '';
+  position: absolute;
+  top: var(--space-2);
+  bottom: var(--space-2);
+  left: -0.45rem;
+  border-left: 1px dashed rgba(255, 255, 255, 0.45);
+}
+
+.passbook__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-5);
+  padding-bottom: var(--space-2);
+  border-bottom: 3px double var(--passbook-ink);
+}
+
+.passbook__head h2 {
+  margin: 0;
+  color: var(--passbook-ink);
+}
+
+.passbook__account {
+  font-size: var(--text-lg);
+  font-weight: 500;
+  margin-left: var(--space-2);
+}
+
+.passbook__range {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--slate-500);
+}
+
+.passbook__scroll {
+  overflow-x: auto;
+}
+
+.passbook__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.passbook__table th {
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  font-weight: 600;
+  color: var(--slate-700);
+  border-bottom: 1px solid var(--passbook-ink);
+  white-space: nowrap;
+}
+
+.passbook__table td {
+  padding: 0.55rem var(--space-3);
+  border-bottom: 1px solid var(--passbook-rule);
+  vertical-align: top;
+}
+
+.passbook__table th + th,
+.passbook__table td + td {
+  border-left: 1px solid var(--passbook-rule);
+}
+
+.passbook__table th.num,
+.passbook__table td.num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.passbook__date {
+  white-space: nowrap;
+}
+
+.passbook__time {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--slate-500);
+}
+
+.passbook__ref {
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.passbook__balance {
+  font-weight: 600;
+  background: rgba(228, 239, 234, 0.55);
+}
+
+.passbook__flag {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 0 var(--space-1);
+  border: 1px solid var(--warning);
+  border-radius: 3px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--warning);
+  white-space: nowrap;
+}
+
+.passbook__pages {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.passbook__note {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-xs);
+  color: var(--slate-500);
+}
+
+/* The strip above the forms on the Transactions page: balance, plan, holders and today's withdrawals. */
+.account-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-3) var(--space-5);
+  margin: var(--space-4) 0 var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+.account-strip dt {
+  font-size: var(--text-sm);
+  color: var(--slate-500);
+}
+
+.account-strip dd {
+  margin: 0;
+  font-weight: 600;
+  color: var(--pine-900);
+}
+
+.account-strip__balance {
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+
+.account-strip__sub {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--slate-500);
+}
+
+.money-forms {
+  align-items: start;
+}
+
+.account-strip .mono .account-strip__sub {
+  font-family: var(--font-sans);
+}
