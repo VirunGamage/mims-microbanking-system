@@ -103,7 +103,7 @@ BEGIN
 END$$
 
 
--- Report 5: Customer activity report
+-- This shows each customer's total deposits, withdrawals and balance change between two selected dates
 DROP PROCEDURE IF EXISTS RPT_CUSTOMER_ACTIVITY$$
 CREATE PROCEDURE RPT_CUSTOMER_ACTIVITY(
     IN p_start_date DATE,
