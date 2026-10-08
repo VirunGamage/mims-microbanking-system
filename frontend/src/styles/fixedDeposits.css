@@ -1,0 +1,93 @@
+/* Styles for the Fixed Deposits page: the term choice, the payout preview and the list header.
+   This file styles the parts that are only on the Fixed deposits page: the term choice cards, the payout preview box and the header of the FD list. */
+
+.term-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.term-options legend {
+  margin-bottom: var(--space-1);
+  padding: 0;
+  font-weight: 600;
+  color: var(--pine-900);
+}
+
+.term-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0 var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.term-option input {
+  grid-row: span 3;
+  align-self: start;
+  margin: 0.3rem 0 0;
+  accent-color: var(--pine-600);
+}
+
+.term-option:has(input:checked) {
+  border-color: var(--pine-600);
+  box-shadow: inset 0 0 0 1px var(--pine-600);
+  background: var(--moss-50);
+}
+
+.term-option:has(input:focus-visible) {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.term-option__name {
+  font-weight: 650;
+  color: var(--pine-900);
+}
+
+.term-option__rate {
+  font-weight: 600;
+}
+
+.term-option__days {
+  font-size: var(--text-sm);
+  color: var(--slate-500);
+}
+
+.term-options .field-error {
+  grid-column: 1 / -1;
+}
+
+.fd-preview {
+  max-width: 36rem;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius);
+  background: var(--moss-100);
+}
+
+.fd-preview p {
+  margin: 0;
+}
+
+.fd-preview p + p {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.fd-list {
+  margin-top: var(--space-6);
+}
+
+.fd-list__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
