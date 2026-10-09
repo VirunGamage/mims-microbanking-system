@@ -87,9 +87,17 @@ CREATE PROCEDURE RPT_MONTHLY_INTEREST_DISTRIBUTION(
 )
 BEGIN
     SELECT
-        sp.plan_name,
-        COUNT(DISTINCT t.account_id) AS accounts_credited,
-        SUM(t.amount)                AS total_interest_paid
+    sp.plan_name,
+    COUNT(DISTINCT t.account_id) AS accounts_credited,
+    COALESCE(SUM(CASE
+        WHEN t.transaction_type = 'SAVINGS_INTEREST' THEN t.amount
+        ELSE 0
+    END), 0) AS savings_interest,
+    COALESCE(SUM(CASE
+        WHEN t.transaction_type = 'FD_INTEREST' THEN t.amount
+        ELSE 0
+    END), 0) AS fd_interest,
+    SUM(t.amount) AS total_interest_paid
     FROM `TRANSACTION` t
     JOIN SAVINGS_ACCOUNT sa
         ON sa.account_id = t.account_id
