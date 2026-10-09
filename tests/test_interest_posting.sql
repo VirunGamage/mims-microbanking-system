@@ -2,7 +2,7 @@
 -- Each test pins this session's clock to a fixed day, so the due dates are tested without waiting for them.
 -- Run through tests/run_all.sql, or alone after tests/_helpers.sql:  mysql -u root -p --table < tests/test_interest_posting.sql
 
---Checks that savings and fixed-deposit interest are calculated,posted and matured correctly on the required dates.
+-- Checks that savings and fixed-deposit interest are calculated,posted and matured correctly on the required dates.
 
 USE mims;
 SET @suite = 'interest_posting';
