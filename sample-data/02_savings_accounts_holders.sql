@@ -1,7 +1,7 @@
--- =====================================================================
 -- 02_savings_accounts_holders.sql
 -- Sample data for Savings Accounts and Account Holders
--- =====================================================================
+
+-- choose database
 USE mims;
 
 -- Session safeguards & transaction block
@@ -10,20 +10,20 @@ SET FOREIGN_KEY_CHECKS = 0;
 START TRANSACTION;
 
 -- Savings accounts linked to specific plans
-INSERT INTO SAVINGS_ACCOUNT (account_no, balance, open_date, status, plan_id) VALUES
-('SA0000001', 0.00, '2024-01-15', 'ACTIVE', 1), -- Child account
-('SA0000002', 0.00, '2024-02-10', 'ACTIVE', 1), -- Child account
-('SA0000003', 0.00, '2024-03-05', 'ACTIVE', 1), -- Child account
-('SA0000004', 0.00, '2024-01-20', 'ACTIVE', 2), -- Teen account
-('SA0000005', 0.00, '2024-02-15', 'ACTIVE', 2), -- Teen account
-('SA0000006', 0.00, '2023-05-10', 'ACTIVE', 3), -- Adult account
-('SA0000007', 0.00, '2023-06-12', 'ACTIVE', 3), -- Adult account
-('SA0000008', 0.00, '2023-07-01', 'ACTIVE', 3), -- Adult account
-('SA0000009', 0.00, '2023-08-15', 'ACTIVE', 3), -- Adult account
-('SA0000010', 0.00, '2022-01-10', 'ACTIVE', 4), -- Senior account
-('SA0000011', 0.00, '2022-05-20', 'ACTIVE', 4), -- Senior account
-('SA0000012', 0.00, '2023-01-10', 'ACTIVE', 5), -- Joint account
-('SA0000013', 0.00, '2023-02-15', 'ACTIVE', 5); -- Joint account
+INSERT INTO SAVINGS_ACCOUNT (account_no, balance, open_date, next_interest_date, status, plan_id) VALUES
+('SA0000001', 0.00, '2024-01-15', '2026-10-01', 'ACTIVE', 1), -- Child account
+('SA0000002', 0.00, '2024-02-10', '2026-10-01', 'ACTIVE', 1), -- Child account
+('SA0000003', 0.00, '2024-03-05', '2026-10-01', 'ACTIVE', 1), -- Child account
+('SA0000004', 0.00, '2024-01-20', '2026-10-01', 'ACTIVE', 2), -- Teen account
+('SA0000005', 0.00, '2024-02-15', '2026-10-01', 'ACTIVE', 2), -- Teen account
+('SA0000006', 0.00, '2023-05-10', '2026-10-01', 'ACTIVE', 3), -- Adult account
+('SA0000007', 0.00, '2023-06-12', '2026-10-01', 'ACTIVE', 3), -- Adult account
+('SA0000008', 0.00, '2023-07-01', '2026-10-01', 'ACTIVE', 3), -- Adult account
+('SA0000009', 0.00, '2023-08-15', '2026-10-01', 'ACTIVE', 3), -- Adult account
+('SA0000010', 0.00, '2022-01-10', '2026-10-01', 'ACTIVE', 4), -- Senior account
+('SA0000011', 0.00, '2022-05-20', '2026-10-01', 'ACTIVE', 4), -- Senior account
+('SA0000012', 0.00, '2023-01-10', '2026-10-01', 'ACTIVE', 5), -- Joint account
+('SA0000013', 0.00, '2023-02-15', '2026-10-01', 'ACTIVE', 5); -- Joint account
 
 -- Link customers to their savings accounts
 INSERT INTO ACCOUNT_HOLDER (customer_id, account_id, role) VALUES
