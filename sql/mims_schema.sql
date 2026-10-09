@@ -306,6 +306,12 @@ BEGIN
     IF NEW.NIC IS NULL AND TIMESTAMPDIFF(YEAR, NEW.DOB, CURDATE()) >= 18 THEN   -- Age is calculated from DOB, not stored
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'NIC is required for customers aged 18 or over';
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM AGENT WHERE agent_id = NEW.registered_by_agent_id AND status = 'ACTIVE') THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Only an ACTIVE agent can register a customer';
+    END IF;
+    IF NEW.registered_at_branch_id <> (SELECT branch_id FROM AGENT WHERE agent_id = NEW.registered_by_agent_id) THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'The customer must be registered at the branch of the registering agent';
+    END IF;
 END$$
 
 -- Same two checks as trg_customer_bi but runs on UPDATE instead of INSERT, so this still gets caught

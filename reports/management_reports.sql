@@ -58,7 +58,7 @@ BEGIN
 END$$
 
 
--- Report 3: Active FD payout schedule
+-- This shows each active fixed deposit with its term, maturity date and next payout date
 DROP VIEW IF EXISTS VW_ACTIVE_FD_PAYOUT_SCHEDULE$$
 CREATE VIEW VW_ACTIVE_FD_PAYOUT_SCHEDULE AS
 SELECT
@@ -79,7 +79,7 @@ WHERE fd.status = 'ACTIVE'
 ORDER BY fd.next_payout_date$$
 
 
--- Report 4: Monthly interest distribution
+-- This shows how much interest was paid for each savings plan in a selected month
 DROP PROCEDURE IF EXISTS RPT_MONTHLY_INTEREST_DISTRIBUTION$$
 CREATE PROCEDURE RPT_MONTHLY_INTEREST_DISTRIBUTION(
     IN p_year  INT,
@@ -103,7 +103,7 @@ BEGIN
 END$$
 
 
--- Report 5: Customer activity report
+-- This shows each customer's total deposits, withdrawals and balance change between two selected dates
 DROP PROCEDURE IF EXISTS RPT_CUSTOMER_ACTIVITY$$
 CREATE PROCEDURE RPT_CUSTOMER_ACTIVITY(
     IN p_start_date DATE,

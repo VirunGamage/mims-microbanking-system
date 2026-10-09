@@ -23,6 +23,7 @@ BEGIN
     DECLARE v_status VARCHAR(10) DEFAULT NULL;
     DECLARE v_is_primary INT;
     DECLARE v_ref_no VARCHAR(30);
+    DECLARE v_next_payout DATE;
 
     -- If anything fails, turn the balance guard back on, undo every change made so far and pass the error to the caller.
     -- The flag has to be reset here because ROLLBACK does not undo session variables.
@@ -36,8 +37,8 @@ BEGIN
 
     START TRANSACTION;
 
-    SELECT account_id, amount, status
-    INTO v_account_id, v_amount, v_status
+    SELECT account_id, amount, status, next_payout_date
+    INTO v_account_id, v_amount, v_status, v_next_payout
     FROM FIXED_DEPOSIT
     WHERE fd_id = p_fd_id
     FOR UPDATE;
@@ -60,6 +61,10 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Only the PRIMARY holder can close this Fixed Deposit';
     END IF;
 
+    IF v_next_payout IS NOT NULL AND v_next_payout <= CURDATE() THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Interest is due on this Fixed Deposit; post the interest before closing it';
+    END IF;
+    
     UPDATE FIXED_DEPOSIT
     SET status = 'CLOSED',
         close_date = CURDATE(),

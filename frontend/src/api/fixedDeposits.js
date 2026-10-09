@@ -1,8 +1,8 @@
 // The calls behind the Fixed Deposits page.
 // Uses GET /api/fixed-deposits, POST /api/fixed-deposits (PROC_OPEN_FIXED_DEPOSIT) and
 // POST /api/fixed-deposits/:id/close (PROC_CLOSE_FIXED_DEPOSIT).
-// The frontend's calls to my fixed deposit routes — building the list URL with its filters and posting to open or close an FD.
-// Kept separate from the page component so the page only deals with what to show, not how the request is shaped.
+// This file holds the calls the Fixed deposits page makes to the backend: listing FDs, opening one and closing one early. 
+// The database does the real work and its answers come back as they are.
 
 import { api } from './client.js';
 
