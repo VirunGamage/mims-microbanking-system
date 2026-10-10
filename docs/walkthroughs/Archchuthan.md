@@ -189,7 +189,7 @@ Expect the last table to say **ALL 166 CHECKS PASS**. `run_all.sql` reloads the 
 - Be able to explain every line. Make a deposit in the Tester view and follow it through the request panel: it shows the procedure, the parameters and the OUT values.
 - Keep the backend thin: a check in the page or the route is only an early warning; the rule itself belongs in the database.
 
-## Likely viva questions
+## Questions and answers about these files
 
 **1. My API logs in as `mims_app`, which cannot UPDATE. How does a deposit change the balance?**
 `mims_app` has SELECT and EXECUTE, plus INSERT on CUSTOMER only. A stored procedure runs with the rights of the account that created it, so `PROC_PROCESS_DEPOSIT` may update the balance while the app may not. The core's `db.test.js` proves a direct UPDATE fails with error 1142.

@@ -1,8 +1,8 @@
 # Walkthrough — Rukshi's files
 
-I wrote this walkthrough to explain the files I worked on and to help me prepare for the viva.
+I wrote this walkthrough to explain the files I worked on.
 
-This guide explains the files I worked on in simple words so I can explain them clearly at the viva. It describes what the code does now, and I will update the matching section if I change a file.
+This guide explains the files I worked on in simple words so they are easy to follow. It describes what the code does now, and I will update the matching section if I change a file.
 
 ## What I own
 
@@ -195,7 +195,7 @@ Each test was also shown to FAIL when its rule was deliberately broken on a thro
 - Run `mysql -u root -p --table < tests/run_all.sql`: the last line must say ALL 166 CHECKS PASS.
 - I must replace every unfinished placeholder in my files and in this walkthrough with my own words.
 - I should read each file once more and make sure I can explain every line; this guide is a starting point, not a script.
-## Likely viva questions
+## Questions and answers about these files
 
 **1. Why can't the app change a balance directly?**
 `mims_app` has only SELECT and EXECUTE on the database and INSERT on `CUSTOMER`, so it has no UPDATE right at all. A balance can only change through a procedure, which runs with its creator's rights and checks the rules first. As a second wall, `trg_savings_balance_guard` refuses a balance change unless `@allow_balance_update` is 1, a flag the procedures switch on only around their own UPDATE.

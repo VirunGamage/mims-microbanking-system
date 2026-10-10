@@ -32,7 +32,7 @@ My part of the project is everything to do with bringing a customer into the sys
 
 **Open a savings account.** I go to Open Account, pick Nimal, and type 50,000 as the opening deposit. The plan preview shows Adult Savings — I point out that I never selected a plan; the page reads the customer's age and picks the matching plan from the database. I click *Open Account*. The stored procedure `PROC_OPEN_SAVINGS_ACCOUNT` runs one atomic transaction that creates the account, links Nimal as the primary holder, and posts the opening deposit. If any of those three steps fails, none of them are saved. The success card shows the new account number, the transaction reference, and the plan.
 
-*If the viva is outside Monday–Friday 09:00–16:00,* the procedure refuses with a business-hours message. I say that the rule lives in the procedure, not the page, which is why changing the UI alone cannot bypass it.
+*If the demo is outside Monday–Friday 09:00–16:00,* the procedure refuses with a business-hours message. I say that the rule lives in the procedure, not the page, which is why changing the UI alone cannot bypass it.
 
 ---
 
