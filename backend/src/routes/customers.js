@@ -101,7 +101,7 @@ router.post('/', async (req, res) => {
   const email = optionalText(body.email, 'email', 'E-mail', 100);
   const agentId = id(body.agentId, 'agentId', 'Agent');
 
-  // REQ-BRA-05: only an ACTIVE agent may register customers (the database does not check this yet, decision #49).
+  // REQ-BRA-05: only an ACTIVE agent may register customers. trg_customer_bi refuses it too; checking here first gives a clear error on the agent field.
   const [agent] = await query('SELECT status, branch_id AS branchId FROM AGENT WHERE agent_id = ?', [agentId]);
   if (!agent) throw new HttpError(400, 'That agent does not exist', 'agentId');
   if (agent.status !== 'ACTIVE') throw new HttpError(422, 'Only an ACTIVE agent can register a customer', 'agentId');

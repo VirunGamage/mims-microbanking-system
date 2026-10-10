@@ -165,7 +165,7 @@ It tests `PROC_PROCESS_DEPOSIT` and `PROC_PROCESS_WITHDRAWAL` (`procedures/01_de
 - Make sure you can explain every line of every file above; this walkthrough is a map, not a script to read out.
 - Never commit `node_modules/` or `.env` (nor the `dist/` build output); `.gitignore` already leaves them out. Run `git status` (it lists the files you have changed or added) before committing, to check nothing else slipped in.
 
-## Likely viva questions
+## Questions and answers about these files
 
 **1. How does a new page get into the menu?**
 `App.jsx` uses Vite's `import.meta.glob('./pages/*.jsx', { eager: true })` to import every page file. A file that exports a component and a `meta` object becomes a route and a menu entry, sorted by `meta.order`; `testerOnly` pages appear only in Tester view. Nobody has to edit `App.jsx`.

@@ -1,8 +1,8 @@
 # Walkthrough — Rukshi's files
 
-I wrote this walkthrough to explain the files I worked on and to help me prepare for the viva.
+I wrote this walkthrough to explain the files I worked on.
 
-This guide explains the files I worked on in simple words so I can explain them clearly at the viva. It describes what the code does now, and I will update the matching section if I change a file.
+This guide explains the files I worked on in simple words so they are easy to follow. It describes what the code does now, and I will update the matching section if I change a file.
 
 ## What I own
 
@@ -77,7 +77,7 @@ The QA-only routes under `/api/tester`: the two Data Checks views and the **Run 
 - `GET /gap/nic-at-18` and `GET /gap/plan-outgrown` read the two views with a fixed SELECT and pass the rows through `camelRows`.
 - `POST /run-interest` expects `{ runDate: 'YYYY-MM-DD', confirm: true }`. Without `confirm: true` it refuses, so a stray request cannot post interest. The date must be real and not later than `databaseToday()`.
 - **Why "today" comes from the database clock.** Every rule (business hours, interest dates, maturity) is judged by MySQL's `NOW()` and `CURDATE()`, and the interest procedures themselves refuse a future run date. The computer running Node could have another time zone or a wrong clock, so the server asks MySQL (`SELECT CURDATE()`). The page, the server and the database then agree on what "today" means.
-- **The order** (team decision #45, the same as in `procedures/07_interest_posting.sql`): `PROC_RUN_FD_INTEREST(runDate)`, then `PROC_PROCESS_FD_MATURITY()`, then `PROC_RUN_SAVINGS_INTEREST(runDate)`. FD interest comes first because an FD's last payout falls on its maturity date: the maturity procedure only matures an FD once that payout has been posted, and a MATURED FD is no longer ACTIVE, so it earns nothing more. Savings interest comes last because it is worked out on the balance on its due date, which must already include the FD interest credited before it. The maturity procedure takes no date; it always uses `CURDATE()`.
+- **The order** (the same as in `procedures/07_interest_posting.sql`): `PROC_RUN_FD_INTEREST(runDate)`, then `PROC_PROCESS_FD_MATURITY()`, then `PROC_RUN_SAVINGS_INTEREST(runDate)`. FD interest comes first because an FD's last payout falls on its maturity date: the maturity procedure only matures an FD once that payout has been posted, and a MATURED FD is no longer ACTIVE, so it earns nothing more. Savings interest comes last because it is worked out on the balance on its due date, which must already include the FD interest credited before it. The maturity procedure takes no date; it always uses `CURDATE()`.
 - The two run procedures hand back their counts through an *OUT parameter* (a parameter that carries a value back to the caller), which `callProc` reads as `postings`. The maturity procedure has none, so `maturedCount()` counts MATURED fixed deposits before and after it.
 - The procedures save each account or FD on its own. If a step fails with *SQLSTATE* `45000` (SQLSTATE is a five-character result code; 45000 is the one our procedures use when they `SIGNAL` a broken rule), the route answers 422 (understood, but refused by a rule) with the message and the step's name; for the second or third step it adds that what was posted before is saved. Running again is safe: each posting moves the due date on, so no cycle is paid twice.
 - `noteResult` adds the counts to the debug details, and `sendData` answers `{ runDate, fdInterestPostings, fdsMatured, savingsInterestPostings }`.
@@ -195,7 +195,7 @@ Each test was also shown to FAIL when its rule was deliberately broken on a thro
 - Run `mysql -u root -p --table < tests/run_all.sql`: the last line must say ALL 166 CHECKS PASS.
 - I must replace every unfinished placeholder in my files and in this walkthrough with my own words.
 - I should read each file once more and make sure I can explain every line; this guide is a starting point, not a script.
-## Likely viva questions
+## Questions and answers about these files
 
 **1. Why can't the app change a balance directly?**
 `mims_app` has only SELECT and EXECUTE on the database and INSERT on `CUSTOMER`, so it has no UPDATE right at all. A balance can only change through a procedure, which runs with its creator's rights and checks the rules first. As a second wall, `trg_savings_balance_guard` refuses a balance change unless `@allow_balance_update` is 1, a flag the procedures switch on only around their own UPDATE.

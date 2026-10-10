@@ -1,6 +1,6 @@
 // QA-only routes for the Tester view: the two Data Checks views and the "Run interest" button. Owner: Rukshi.
 // Reads VW_GAP_NIC_AT_18 and VW_GAP_PLAN_OUTGROWN (procedures/08_gap_queries.sql); Run interest calls, in the repository's
-// order (decision #45), PROC_RUN_FD_INTEREST, PROC_PROCESS_FD_MATURITY and PROC_RUN_SAVINGS_INTEREST.
+// order (the same as the daily event), PROC_RUN_FD_INTEREST, PROC_PROCESS_FD_MATURITY and PROC_RUN_SAVINGS_INTEREST.
 // This route file provides the tester data-check endpoints and runs the fixed-deposit and savings-interest processing in the required order.
 import { Router } from 'express';
 import { callProc, databaseToday, query } from '../db.js';

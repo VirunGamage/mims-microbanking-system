@@ -278,7 +278,8 @@ CREATE TABLE SYSTEM_CONFIG (
     description   VARCHAR(200)
 ) ENGINE=InnoDB;
 
--- The 12 actual settings, values given directly in the brief
+-- The 12 settings. The 30-day cycle and the ages 18 and 60 come from the brief; the hours, limits, the 365-day basis
+-- and the Children/Teen bands are team assumptions (SRS 2.7)
 INSERT INTO SYSTEM_CONFIG (config_key, config_value, description) VALUES
     ('business_day_start',       '09:00',    'Earliest time deposits/withdrawals are accepted (Mon-Fri)'),
     ('business_day_end',         '16:00',    'Latest time deposits/withdrawals are accepted (Mon-Fri)'),
@@ -295,8 +296,8 @@ INSERT INTO SYSTEM_CONFIG (config_key, config_value, description) VALUES
 
 DELIMITER $$
 
--- Before a new customer row is added, checks two things: DOB isn't in the future, and if the customer
--- is already 18+ they must have an NIC (kids/teens are allowed to have NULL)
+-- Before a new customer row is added, checks four things: DOB isn't in the future, an 18+ customer has an NIC
+-- (kids/teens may have NULL), the registering agent is ACTIVE, and the branch is that agent's branch
 CREATE TRIGGER trg_customer_bi BEFORE INSERT ON CUSTOMER
 FOR EACH ROW
 BEGIN
@@ -314,7 +315,7 @@ BEGIN
     END IF;
 END$$
 
--- Same two checks as trg_customer_bi but runs on UPDATE instead of INSERT, so this still gets caught
+-- The DOB and NIC checks of trg_customer_bi, run on UPDATE instead of INSERT, so this still gets caught
 -- even if someone edits a customer row later (eg. correcting a wrong DOB)
 CREATE TRIGGER trg_customer_bu BEFORE UPDATE ON CUSTOMER
 FOR EACH ROW

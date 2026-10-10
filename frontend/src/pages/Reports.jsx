@@ -350,8 +350,8 @@ function MonthlyInterest({ params, today, onFilter }) {
   const state = useApiData(reportPath['monthly-interest']({ year, month }));
   const thisYear = Number(today.slice(0, 4));
   const years = Array.from({ length: thisYear - 2019 }, (_, index) => thisYear - index);
-  // The report gives one total per plan. If it also returns savingsInterest and fdInterest (a proposed change to the
-  // report), the chart splits them automatically.
+  // The report returns savingsInterest and fdInterest as well as the total, so the chart splits them; with an older
+  // copy of the report (one total per plan) it falls back to single bars.
   const split = state.data?.length > 0 && 'savingsInterest' in state.data[0] && 'fdInterest' in state.data[0];
 
   return (

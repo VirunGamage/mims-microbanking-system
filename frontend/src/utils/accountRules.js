@@ -17,9 +17,9 @@ function isRealDate(text) {
   return check.getUTCFullYear() === year && check.getUTCMonth() === month - 1 && check.getUTCDate() === day;
 }
 
-// Age in full years on `today`, or null while the date typed so far isn't a real date.
+// Age in full years on `today`, or null while the date typed so far isn't a real date or is in the future.
 export function ageFromDob(dob, today) {
-  return isRealDate(String(dob ?? '')) ? ageOn(dob, today) : null;
+  return isRealDate(String(dob ?? '')) && String(dob) <= today ? ageOn(dob, today) : null;
 }
 
 // Field name -> message, for every problem in the registration form. An empty object means it can be sent.

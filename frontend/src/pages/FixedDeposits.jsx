@@ -386,8 +386,8 @@ function CloseDialog({ fd, onCancel, onClosed }) {
         <div className="banner banner--warning" role="note">
           <p className="banner__title">A payout is due but not posted</p>
           <p>
-            {formatMoney(fd.interestPerPayout)} was due on {formatDate(fd.nextPayoutDate)}. Closing now would lose it. Post the
-            interest first: Tester view, Data checks, Run interest.
+            {formatMoney(fd.interestPerPayout)} was due on {formatDate(fd.nextPayoutDate)}. The database refuses to close it until
+            that payout is posted: Tester view, Data checks, Run interest.
           </p>
         </div>
       )}

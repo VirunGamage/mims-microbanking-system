@@ -42,7 +42,7 @@ On **Transactions**, choose the new account (or SA0000007):
 ## 5. Fixed deposits — Shanuja (2 minutes)
 
 1. Open a 6-month FD of 20,000 from the new account (or SA0000007) → the savings balance drops by 20,000 (FD_OPEN); the preview showed LKR 213.70 every 30 days.
-2. In the list, FD 9 (SA0000012) shows *due, not posted yet*. Press **Close early**: the dialog states the rule (the unfinished 30-day cycle is forfeited) and warns that a due payout would be lost.
+2. In the list, FD 9 (SA0000012) shows *due, not posted yet*. Press **Close early**: the dialog states the rule (the unfinished 30-day cycle is forfeited) and warns that a payout is due; the database refuses to close it until the interest is posted.
 3. Cancel. "Only the primary holder can close it" — choose Harper Garcia (second holder) to show the refusal if time allows.
 
 ## 6. Interest and data checks — Rukshi (2 minutes)
