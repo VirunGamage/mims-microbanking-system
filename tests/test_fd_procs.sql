@@ -1,9 +1,7 @@
 -- Tests for opening and closing fixed deposits (procedures/06_open_fixed_deposit.sql and 03_fixed_deposit.sql). Owner: Sameera.
 -- Each test pins this session's clock to a fixed moment, so business hours and FD dates are tested the same way on any day.
 -- Run through tests/run_all.sql, or alone after tests/_helpers.sql:  mysql -u root -p --table < tests/test_fd_procs.sql
--- Covers business-hours enforcement, plan rate locking, balance deduction, the one-FD-per-account limit, early closure
--- (with and without payouts due), the primary-holder-only close rule, agent-status checks, and full rollback on failure.
--- Every test sets its own session clock and cleans up its own data, so this file can run on its own or via run_all.sql.
+-- SQL test suite for validating fixed deposit opening, closing procedures, rates, and business constraints in the database.
 
 USE mims;
 SET @suite = 'fixed_deposits';
