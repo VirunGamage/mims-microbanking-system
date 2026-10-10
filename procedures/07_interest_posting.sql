@@ -301,8 +301,7 @@ END$$
 -- The daily job as a MySQL event (REQ-FD-04). It is created DISABLED so loading this file never changes the data. To switch it on:
 --     SET GLOBAL event_scheduler = ON;   (needs a privileged MySQL account)
 --     ALTER EVENT ev_daily_interest ENABLE;
--- It runs every day from 03:00 tomorrow. The maturity call is commented out because PROC_PROCESS_FD_MATURITY is in
--- 03_fixed_deposit.sql, so remove the two dashes once that file is loaded.
+-- It runs every day from 03:00 tomorrow. PROC_PROCESS_FD_MATURITY lives in 03_fixed_deposit.sql, which load_all.sql loads before this file.
 CREATE EVENT ev_daily_interest
 ON SCHEDULE EVERY 1 DAY
 STARTS TIMESTAMP(CURRENT_DATE + INTERVAL 1 DAY, '03:00:00')
