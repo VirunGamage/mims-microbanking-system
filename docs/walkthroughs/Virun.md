@@ -82,7 +82,7 @@ The front page of the repository, written so a newcomer can follow it from top t
 4. **Set up (once per computer):** five steps — build the database, check the data (36 PASS), create the `mims_app` user, copy `.env.example` to `.env`, and run `npm ci` in both folders. `npm ci` installs the exact versions recorded in `package-lock.json`.
 5. **Run the app:** two terminals with `npm run dev`, the address http://localhost:5173, the smoke test, and the reminder that business hours are a rule, not a bug.
 6. **Tests:** a table of each kind of test, its command and what it needs, then how the SQL tests pin the clock and why `run_all.sql` reloads the database.
-7. **Team and ownership:** who owns what, and how work reaches `main` (a feature branch, a pull request, "Create a merge commit").
+7. **Team Member Contributions:** who did what, and how work reaches `main` (a feature branch, a pull request, "Create a merge commit").
 
 ### `backend/.env.example`
 

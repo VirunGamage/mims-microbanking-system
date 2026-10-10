@@ -96,18 +96,32 @@ The data checks expect exactly 15 customers and 10 fixed deposits, so reload the
 
 **About the SQL tests.** Each test sets its own session clock to a fixed moment, so business hours, ages and interest dates give the same result at any time of day. `run_all.sql` loads the database, runs the five test files and loads the database again at the end (test transactions cannot be deleted), so it also wipes anything entered through the app. The last table must say `ALL 166 CHECKS PASS`. To run one file on its own, load `tests/_helpers.sql` first.
 
-## Team and ownership
+## Team Member Contributions (database)
 
 | Person | Owns |
 |---|---|
-| Virun | Schema, deposit/withdrawal, account-opening, FD-opening and interest procedures, validator; repository setup files; backend core; customer and account API; frontend setup (API client, agent context, money and date helpers); smoke test; documents |
-| Shanuja | FD closure/maturity procedures and triggers; frontend core (design, shared components, page frame, Home); fixed deposits screens |
-| Rukshi | Management reports; load/user scripts, Data Checks views; reports and Data Checks screens |
-| Archchu | Transaction and FD sample data; transactions screen and passbook |
-| Sameera | Branch, agent, customer and account sample data; customers and account-opening screens; QA guide |
+| Virun Gamage | Project lead: planning, design documents, PR reviews and merges. Schema (tables, keys, constraints, customer and agent triggers); account-opening and FD-opening procedures |
+| Shanujah Sivakumar | Planning, PR reviews and merges. FD closure, maturity and interest-posting procedures with the daily event; one-active-FD and balance-guard triggers; payout-due check on FD close |
+| Rookshi Suthakaran | Management reports, including separate savings and FD interest; registering-agent check in the customer trigger; transaction-immutability triggers; sample-data validator |
+| Sureshkumar Archchuthan | Transaction and fixed-deposit sample data |
+| Sameera Senanayaka | Branch, agent, customer and account sample data; deposit and withdrawal procedures |
+
+## AI contributions
+
+An AI coding assistant drafted the web app (the Node.js/Express backend and the React frontend), the automated tests (SQL tests, backend and frontend tests), the database load and app-user scripts, the Data checks views, the smoke test, and drafts of the documents in `docs/`. Team members reviewed this work, ran and tested it against the database, and committed it under their own names; each can explain the parts below.
+
+| Person | Reviewed, tested and committed |
+|---|---|
+| Virun Gamage | Repository setup and README; backend core and tests; customer and account API; frontend setup; smoke test; review fixes |
+| Shanujah Sivakumar | Frontend core (design, shared components, page frame, Home); fixed deposits API and screens; deposit/withdrawal SQL tests |
+| Rookshi Suthakaran | Reports and Data checks (API, screens, views); charts and CSV export; load/user scripts; account-opening tests and test runner |
+| Sureshkumar Archchuthan | Transactions API, screen and passbook; report cross-check test; interest-posting tests; trigger and report tests |
+| Sameera Senanayaka | Customers and account-opening screens, customer search and form rules; fixed-deposit SQL tests; QA guide; demo script |
+
+## Overall contribution
+
+**Agreed by the team:** Virun Gamage 26%, Shanujah Sivakumar 23%, Rookshi Suthakaran 19%, Sameera Senanayaka 16%, Sureshkumar Archchuthan 16%.
+
+## Workflow
 
 Work happens on a feature branch with a pull request into `main`, merged with "Create a merge commit".
-
-## AI assistance
-
-An AI coding assistant helped draft parts of the code and documents; each owner reviewed, ran and tested their files against the real database and can explain every line.
