@@ -24,6 +24,7 @@ BEGIN
     DECLARE v_is_primary INT;
     DECLARE v_ref_no VARCHAR(30);
     DECLARE v_next_payout DATE;
+    DECLARE v_maturity DATE;
 
     -- If anything fails, turn the balance guard back on, undo every change made so far and pass the error to the caller.
     -- The flag has to be reset here because ROLLBACK does not undo session variables.
@@ -37,8 +38,8 @@ BEGIN
 
     START TRANSACTION;
 
-    SELECT account_id, amount, status, next_payout_date
-    INTO v_account_id, v_amount, v_status, v_next_payout
+    SELECT account_id, amount, status, next_payout_date, maturity_date
+    INTO v_account_id, v_amount, v_status, v_next_payout, v_maturity
     FROM FIXED_DEPOSIT
     WHERE fd_id = p_fd_id
     FOR UPDATE;
@@ -63,6 +64,11 @@ BEGIN
 
     IF v_next_payout IS NOT NULL AND v_next_payout <= CURDATE() THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Interest is due on this Fixed Deposit; post the interest before closing it';
+    END IF;
+    
+    -- A Fixed Deposit that has reached its maturity date is paid back by PROC_PROCESS_FD_MATURITY (status MATURED), not closed early.
+    IF v_maturity <= CURDATE() THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'This Fixed Deposit has reached maturity; run the maturity step instead of closing it';
     END IF;
     
     UPDATE FIXED_DEPOSIT
