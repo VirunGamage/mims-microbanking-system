@@ -103,7 +103,7 @@ The data checks expect exactly 15 customers and 10 fixed deposits, so reload the
 | Virun Gamage | Project lead: planning, design documents, PR reviews and merges. Schema (tables, keys, constraints, customer and agent triggers); account-opening and FD-opening procedures |
 | Shanujah Sivakumar | Planning, PR reviews and merges. FD closure, maturity and interest-posting procedures with the daily event; one-active-FD and balance-guard triggers; payout-due check on FD close |
 | Rookshi Suthakaran | Management reports, including separate savings and FD interest; registering-agent check in the customer trigger; transaction-immutability triggers; sample-data validator |
-| Sureshkumar Archchuthan | Transaction and fixed-deposit sample data |
+| Sureshkumar Archchuthan | Transaction and fixed-deposit sample data; interest-posting, trigger and report SQL tests |
 | Sameera Senanayaka | Branch, agent, customer and account sample data; deposit and withdrawal procedures |
 
 ## AI contributions
@@ -115,7 +115,7 @@ An AI coding assistant drafted the web app (the Node.js/Express backend and the 
 | Virun Gamage | Repository setup and README; backend core and tests; customer and account API; frontend setup; smoke test; review fixes |
 | Shanujah Sivakumar | Frontend core (design, shared components, page frame, Home); fixed deposits API and screens; deposit/withdrawal SQL tests |
 | Rookshi Suthakaran | Reports and Data checks (API, screens, views); charts and CSV export; load/user scripts; account-opening tests and test runner |
-| Sureshkumar Archchuthan | Transactions API, screen and passbook; report cross-check test; interest-posting tests; trigger and report tests |
+| Sureshkumar Archchuthan | Transactions API, screen and passbook; report cross-check test |
 | Sameera Senanayaka | Customers and account-opening screens, customer search and form rules; fixed-deposit SQL tests; QA guide; demo script |
 
 ## Overall contribution
