@@ -4,7 +4,7 @@ This explains the files I committed in the app phase. Each part names the real f
 
 ## What I own
 
-I wrote the database design: the schema, the deposit/withdrawal, account-opening, FD-opening and interest procedures, and the validator. In the app phase I also own the foundations the others build on, and some documents:
+I wrote the database design: the schema (tables, keys, constraints, and the customer and agent triggers) and the account-opening and FD-opening procedures. In the app phase I also own the foundations the others build on, and some documents:
 
 - **Repository set-up:** `.gitignore`, `.gitattributes`, `README.md` and `backend/.env.example`.
 - **The backend core** in `backend/src/`: start-up (`server.js`), the Express app (`app.js`), the settings (`config.js`), the database helpers (`db.js`), error handling (`errors.js`), input checks (`validate.js`), the answer format (`respond.js`) and the route list (`routes/index.js`), with the unit tests (`app.test.js`, `errors.test.js`, `validate.test.js`) and the database test `integration/db.test.js`. Every other route file is built on these.
@@ -12,9 +12,8 @@ I wrote the database design: the schema, the deposit/withdrawal, account-opening
 - **The frontend set-up:** `frontend/package.json`, `vite.config.js` and `index.html`; the API client `frontend/src/api/client.js` and the data hooks `api/useApi.js`; the agent context `context/AgentContext.jsx`; and the money and date helpers `utils/money.js` and `utils/format.js` with their tests. Shanuja's frontend core is built on these.
 - **The smoke test:** `scripts/smoke-test.mjs`.
 - `docs/SRS_REVISION.md`: the SRS v3.1 revision text.
-- `tests/validate_sample_data.sql`: my own original validator (36 checks).
 
-The browser never talks to MySQL. A page calls the Express API (port 3001), and the API calls my procedures as `mims_app`, a user that may only SELECT, EXECUTE routines and INSERT into `CUSTOMER`. So every rule I wrote — business hours, minimum balances, the daily limit, the plan by age, interest — is still enforced by the database, whatever the page does. The pages only check the same rules early, so a mistake shows beside the field. My core code checks that the input has the right shape, calls a stored procedure and explains the answer in plain words; even a bug in the app cannot change a balance.
+The browser never talks to MySQL. A page calls the Express API (port 3001), and the API calls the team's procedures as `mims_app`, a user that may only SELECT, EXECUTE routines and INSERT into `CUSTOMER`. So every rule — business hours, minimum balances, the daily limit, the plan by age, interest — is still enforced by the database, whatever the page does. The pages only check the same rules early, so a mistake shows beside the field. My core code checks that the input has the right shape, calls a stored procedure and explains the answer in plain words; even a bug in the app cannot change a balance.
 
 ## How a request travels
 
