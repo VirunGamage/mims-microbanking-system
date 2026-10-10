@@ -23,7 +23,7 @@ The Customers page allows branch agents and QA testers to search for existing cu
 ### 2.1 Searching Customers
 1. Open **Customers** from the navigation bar or go to `http://localhost:5173/customers`.
 2. Enter a search query in the search box (Name, NIC, Phone Number, or Customer ID).
-3. The table displays up to 20 matching customer records with their Name, NIC, Age, Phone, and Assigned Branch.
+3. The table displays up to 50 matching customer records with their Name, NIC, Age, Phone, and Assigned Branch.
 
 ### 2.2 Viewing Customer Profile & Accounts
 1. Click **View** or select any customer from the search table.
