@@ -1,65 +1,48 @@
 # MIMS Walkthrough — Customer Management & Account Opening
 
-**Owner:** Sameera (Customers & Account Opening Module Owner)  
-**System:** B-Trust Microbanking and Interest Management System (MIMS)  
+**Owner:** Sameera  
+**Module:** Customers & Account Opening  
 
-This document details my specific viva presentation walkthrough, technical architecture, and explanation notes for the Customer Management and Savings Account Opening modules in MIMS.
+My part of the project is everything to do with bringing a customer into the system and opening their first savings account — the sample data, the API helpers, the browser-side validation rules and their unit tests, and the two UI pages.
 
 ---
 
-## 1. Summary of Ownership & Files
+## 1. Files I Own
 
-| Component / Layer | File Path | Description |
+| Layer | File | What it does |
 |---|---|---|
-| **Sample Data** | [`sample-data/01_branches_agents_customers.sql`](file:///c:/Users/LapMart/Desktop/B-TRUST%20bank%20db/mims-microbanking-system/sample-data/01_branches_agents_customers.sql) | Initial sample data for Bank, Branches, Agents, and Customers. |
-| **Sample Data** | [`sample-data/02_savings_accounts_holders.sql`](file:///c:/Users/LapMart/Desktop/B-TRUST%20bank%20db/mims-microbanking-system/sample-data/02_savings_accounts_holders.sql) | Initial sample data for Savings Accounts and Joint/Single Account Holders (with `next_interest_date`). |
-| **API Client** | [`frontend/src/api/customers.js`](file:///c:/Users/LapMart/Desktop/B-TRUST%20bank%20db/mims-microbanking-system/frontend/src/api/customers.js) | Client API helpers for searching customers, loading profiles, registering customers, and opening accounts. |
-| **Validation Rules** | [`frontend/src/utils/accountRules.js`](file:///c:/Users/LapMart/Desktop/B-TRUST%20bank%20db/mims-microbanking-system/frontend/src/utils/accountRules.js) | Browser-side business rules (Age calculation, NIC requirements, plan selection, minimum opening deposit). |
-| **Unit Tests** | [`frontend/test/accountRules.test.js`](file:///c:/Users/LapMart/Desktop/B-TRUST%20bank%20db/mims-microbanking-system/frontend/test/accountRules.test.js) | 15 automated unit tests validating browser-side rules. |
-| **UI Components** | [`frontend/src/components/customers/CustomerPicker.jsx`](file:///c:/Users/LapMart/Desktop/B-TRUST%20bank%20db/mims-microbanking-system/frontend/src/components/customers/CustomerPicker.jsx) | Auto-complete customer search picker component reusable across pages. |
-| **UI Pages** | [`frontend/src/pages/Customers.jsx`](file:///c:/Users/LapMart/Desktop/B-TRUST%20bank%20db/mims-microbanking-system/frontend/src/pages/Customers.jsx) | Customers search, profile view, and customer registration modal. |
-| **UI Pages** | [`frontend/src/pages/OpenAccount.jsx`](file:///c:/Users/LapMart/Desktop/B-TRUST%20bank%20db/mims-microbanking-system/frontend/src/pages/OpenAccount.jsx) | Savings account opening screen with automatic plan selection and joint account support. |
-| **UI Styles** | [`frontend/src/styles/customers.css`](file:///c:/Users/LapMart/Desktop/B-TRUST%20bank%20db/mims-microbanking-system/frontend/src/styles/customers.css) | Plan preview and customer picker styling. |
+| Sample data | `sample-data/01_branches_agents_customers.sql` | Inserts the three branches, five agents and fifteen sample customers. |
+| Sample data | `sample-data/02_savings_accounts_holders.sql` | Inserts the thirteen savings accounts and links each one to its holder(s). Sets `next_interest_date = '2026-10-01'` on every account so that interest posting works immediately on a fresh load. |
+| API helpers | `frontend/src/api/customers.js` | Four functions: search customers, load one customer's profile and accounts, register a new customer, and open a savings account. Each one builds the right URL or request body and returns the JSON the page needs. |
+| Validation rules | `frontend/src/utils/accountRules.js` | Browser copies of the rules the database also enforces: calculate age from date of birth, decide which savings plan fits that age, check that an adult has a NIC, and check that the opening deposit meets the plan minimum. |
+| Unit tests | `frontend/test/accountRules.test.js` | Fifteen Node.js tests that run with `npm test` in the `frontend/` folder. They cover age calculation edge cases, NIC requirements for adults and minors, plan selection at the three age boundaries, and minimum-deposit checks. All fifteen pass. |
+| Shared component | `frontend/src/components/customers/CustomerPicker.jsx` | A reusable live-search field. As the agent types, it calls `/api/customers?search=...` and shows a dropdown of matches. Used on both pages. |
+| Customers page | `frontend/src/pages/Customers.jsx` | Lets an agent search for customers, view a customer's details and all their accounts in one panel, or open the registration form. All state lives in URL parameters (`?q=`, `?customer=`, `?new=1`) so the browser back button and bookmarks work. |
+| Account opening page | `frontend/src/pages/OpenAccount.jsx` | Lets an agent pick a primary holder (and an optional joint holder), shows a live plan preview with the interest rate and minimum deposit, and submits to `PROC_OPEN_SAVINGS_ACCOUNT`. |
+| Styles | `frontend/src/styles/customers.css` | Styles the plan preview card and the customer picker dropdown. |
+| SQL tests | `tests/test_fd_procs.sql` | Tests for the fixed deposit open and close procedures. Covers business-hours enforcement, plan-rate locking, balance deduction, the one-FD-per-account rule, early closure, and the primary-holder-only close rule. |
 
 ---
 
-## 2. Live Presentation Script & Speaking Steps (2 Minutes)
+## 2. What I Show in the Demo (about 2 minutes)
 
-### Step 1: Customer Search & Profile View
-1. Navigate to **Customers** (`/customers`).
-2. Type `wilson` in the search box.
-3. **Demonstrate:** The live search fetches up to 20 matching records from `/api/customers?search=wilson` and displays **Ethan Wilson (Age 16)**.
-4. **Speaking Point:** *"The Customer page maintains its state in URL search parameters (`?q=`, `?customer=`), so browser navigation buttons work seamlessly and customer profiles can be directly bookmarked or linked."*
+**Search and view a customer.** I type `wilson` in the search box. The page calls `/api/customers?search=wilson`, gets back up to twenty matches, and I click Ethan Wilson (age 16) to open his profile and see his account.
 
-### Step 2: Registering a New Customer (Validation & Database Trigger Alignment)
-1. Click **Register New Customer**.
-2. Enter Name: **Nimal Perera**, Date of Birth: `1994-03-12` (Age 32), and **leave the NIC field empty**.
-3. Click **Register Customer**.
-4. **Demonstrate:** The form stops beside the NIC box with message: *"NIC is required for customers aged 18 or over."*
-5. **Speaking Point:** *"The frontend validates rules early via `accountRules.js` for instant feedback. Crucially, the MySQL database enforces the exact same rule in trigger `trg_customer_bi`. Even if a user bypasses the browser and executes a direct SQL INSERT, the database will refuse it — as verified by our automated SQL tests."*
-6. Enter NIC: `199407201234` and submit. Customer is successfully registered under Alice Smith's branch (Central Branch).
+**Register a new customer.** I click *Register new customer*, fill in Nimal Perera with date of birth 1994-03-12, and leave the NIC box empty. The form stops with "NIC is required for customers aged 18 or over." I explain that `accountRules.js` catches this in the browser for instant feedback, but the database trigger `trg_customer_bi` enforces the same rule at the SQL level — so even a direct INSERT with no NIC is refused. I add NIC `199407201234` and submit. Nimal is saved under Alice Smith's branch.
 
-### Step 3: Opening a Savings Account (`/open-account`)
-1. Navigate to **Open Account** (`/open-account`).
-2. Select **Nimal Perera** using the `CustomerPicker`.
-3. Enter Opening Deposit: **LKR 50,000.00**.
-4. **Speaking Point:** *"Notice that we do not manually specify a savings plan. The stored procedure `PROC_OPEN_SAVINGS_ACCOUNT` automatically evaluates Nimal's age (32) and assigns the Adult Savings Plan. The creation of the savings account, account holder link, and initial deposit transaction are executed in a single atomic database transaction — if any step fails, the entire transaction is rolled back."*
-5. Click **Open Account**. The success card displays the assigned Account Number (e.g. `SA0000014`), transaction reference, and Adult plan details.
+**Open a savings account.** I go to Open Account, pick Nimal, and type 50,000 as the opening deposit. The plan preview shows Adult Savings — I point out that I never selected a plan; the page reads the customer's age and picks the matching plan from the database. I click *Open Account*. The stored procedure `PROC_OPEN_SAVINGS_ACCOUNT` runs one atomic transaction that creates the account, links Nimal as the primary holder, and posts the opening deposit. If any of those three steps fails, none of them are saved. The success card shows the new account number, the transaction reference, and the plan.
 
-*Note for Closed Branch (Outside Mon-Fri 09:00-16:00):*  
-If the viva takes place outside business hours, stored procedure `PROC_OPEN_SAVINGS_ACCOUNT` will throw a 422 exception: *"Deposits and new accounts are accepted only during business hours."* State during the demo: *"This demonstrates the database enforcing business hour rules directly at the stored procedure level."*
+*If the viva is outside Monday–Friday 09:00–16:00,* the procedure refuses with a business-hours message. I say that the rule lives in the procedure, not the page, which is why changing the UI alone cannot bypass it.
 
 ---
 
-## 3. Technical Architecture Questions & Answers
+## 3. Questions I Expect and How I Answer Them
 
-### Q1: How does the application ensure an adult cannot be registered without an NIC?
-**Answer:** Validation happens in two layers:
-1. **Frontend:** `customerFormErrors()` in `accountRules.js` checks if `ageFromDob(dob) >= 18` and requires `nic`.
-2. **Database:** Before-INSERT trigger `trg_customer_bi` checks `TIMESTAMPDIFF(YEAR, dob, CURDATE()) >= 18` and throws `SQLSTATE '45000'` if `nic` is `NULL`.
+**How does a registration with no NIC fail?**  
+In two places independently. `customerFormErrors()` in `accountRules.js` calls `ageFromDob(dob)` and, if the result is 18 or over and `nic` is blank, returns an error attached to the NIC field. If somehow the form data reaches the API anyway, the trigger `trg_customer_bi` recalculates the age with `TIMESTAMPDIFF(YEAR, dob, CURDATE())` and signals SQLSTATE 45000, which the backend turns into a 422 response.
 
-### Q2: How are savings plans assigned when opening an account?
-**Answer:** The frontend previews the plan using `expectedPlan(age)` (Minor $< 18$, Adult $18-59$, Senior $\ge 60$). However, the database is the authoritative source: `PROC_OPEN_SAVINGS_ACCOUNT` queries `SAVINGS_PLAN` and matches the plan ID based on customer age at the time of execution.
+**Why does the page show a plan before the account is created?**  
+`expectedPlan(age)` in `accountRules.js` maps age to Minor, Adult, or Senior and looks up the matching minimum deposit and rate from constants that mirror the `SAVINGS_PLAN` table. It is only a preview; the stored procedure selects the real plan ID from `SAVINGS_PLAN` at the moment of execution, so the database is always authoritative.
 
-### Q3: How is joint account ownership represented in the database?
-**Answer:** Joint accounts use `SAVINGS_PLAN` ID 5 ('Joint') and link two customer IDs in the `ACCOUNT_HOLDER` junction table with roles `'PRIMARY'` and `'SECONDARY'`.
+**How are joint accounts stored?**  
+A joint account uses `SAVINGS_PLAN` ID 5. Both holders are rows in `ACCOUNT_HOLDER` with the same `account_id` — one has `role = 'PRIMARY'` and the other `role = 'SECONDARY'`. The procedures that change the account (open an FD, close it early) check that the requesting customer is the PRIMARY holder before they proceed.
