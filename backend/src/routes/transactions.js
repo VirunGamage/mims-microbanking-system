@@ -11,7 +11,7 @@ import { noteCall, noteResult, sendData } from '../respond.js';
 import { ValidationError, id, money } from '../validate.js';
 
 const router = Router();
-const CHANNEL = 'BRANCH'; // every transaction made in this app is done by an agent at a branch (decision #9)
+const CHANNEL = 'BRANCH'; // every transaction made in this app is done by an agent at a branch
 
 // Money coming into the savings account; the other types (WITHDRAWAL, FD_OPEN) take money out.
 const CREDIT_TYPES = "('DEPOSIT', 'SAVINGS_INTEREST', 'FD_INTEREST', 'FD_CLOSURE')";
@@ -95,7 +95,7 @@ function pageNumber(value, field, label, fallback, max) {
 }
 
 // GET /api/accounts/:id/transactions?page=1&pageSize=20
-// Newest first. The running balance is summed in time order (txn_timestamp, then transaction_id, decision #46), so a
+// Newest first. The running balance is summed in time order (txn_timestamp, then transaction_id), so a
 // late interest posting stamped with its due date lands where the database itself counts it.
 router.get('/:id/transactions', async (req, res) => {
   const accountId = id(req.params.id, 'id', 'Account ID');

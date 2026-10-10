@@ -12,8 +12,8 @@ import { id, money, oneOf, optionalId } from '../validate.js';
 const router = Router();
 const STATUSES = ['ACTIVE', 'MATURED', 'CLOSED'];
 
-// payoutDue: an ACTIVE FD whose payout date has come but whose interest hasn't been posted yet. Closing it now would lose
-// that payout (gaps and solutions #14), so the close dialog warns about it.
+// payoutDue: an ACTIVE FD whose payout date has come but whose interest hasn't been posted yet. The database refuses to close it until
+// that payout is posted, so the close dialog warns about it.
 const FD_COLUMNS = `
   fd.fd_id AS fdId, fd.account_id AS accountId, sa.account_no AS accountNo, fd.amount, fd.interest_rate AS interestRate,
   fd.fd_plan_id AS fdPlanId, fp.term_name AS termName, fp.duration_days AS durationDays,

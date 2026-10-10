@@ -103,7 +103,7 @@ The SRS v3.0 (24 September 2026), the Briefing, the Viva Guide and the design do
 - **§1**, replace "plus one lightweight QA screen in Python that calls the database directly. There is no separate API tier. The depth of the QA screen is flexible…" with: "plus a lightweight QA web app: React pages and a thin Node.js/Express API that only calls the database's procedures. The app has an Agent view and a Tester view."
 - **§2**: "11 tables" → "11 business tables (plus two helper tables for reference and account numbers)"; "one PRIMARY, one or more SECONDARY holders" → "one PRIMARY and one SECONDARY holder".
 - **§3 Files**: validator "34 read-only checks" → "36"; add rows for `procedures/`, `reports/`, `scripts/load_all.sql`, `tests/run_all.sql`, `backend/`, `frontend/`, `docs/`.
-- **§4 Next steps**: replace with: "1. Each member merges their slice (see START_HERE). 2. Run `tests/run_all.sql` (ALL 166 CHECKS PASS) and the validator (36 PASS). 3. Apply the proposed SQL changes in the owners' own commits. 4. Rehearse the demo (`docs/DEMO_SCRIPT.md`)."
+- **§4 Next steps**: replace with: "1. Each member merges their slice (see the README). 2. Run `tests/run_all.sql` (ALL 166 CHECKS PASS) and the validator (36 PASS). 3. Apply the proposed SQL changes in the owners' own commits. 4. Rehearse the demo (`docs/DEMO_SCRIPT.md`)."
 
 ## 14. Viva Guide
 
