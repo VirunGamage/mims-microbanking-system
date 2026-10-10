@@ -45,9 +45,9 @@ Here is one deposit, from the button to the passbook. The page and the transacti
 Sameera's form (`RegisterCustomer` in `Customers.jsx`) checks the fields in the browser, then her `registerCustomer()` posts the form to `/api/customers` through my client and the proxy. From there it is my code:
 
 1. Express passes the request to `router.post('/')` in `backend/src/routes/customers.js`. The helpers from `validate.js` check each value: first and last name required, at most 50 characters; date of birth a real `YYYY-MM-DD` date, not before 1900-01-01 and not after the database's today (`databaseToday()`); NIC, address, phone and e-mail optional, at most 12, 150, 20 and 100 characters; `agentId` a positive whole number. A failure throws a `ValidationError`: HTTP 400 naming the field.
-2. The route reads the agent: `SELECT status, branch_id … FROM AGENT WHERE agent_id = ?`. No such agent gives 400 "That agent does not exist"; an agent who is not ACTIVE gives 422 "Only an ACTIVE agent can register a customer", both on the `agentId` field. The database does not check this yet (decision #49), so the route does.
+2. The route reads the agent: `SELECT status, branch_id … FROM AGENT WHERE agent_id = ?`. No such agent gives 400 "That agent does not exist"; an agent who is not ACTIVE gives 422 "Only an ACTIVE agent can register a customer", both on the `agentId` field. The trigger `trg_customer_bi` refuses the same thing; the route checks first so the error lands on the agent field.
 3. `noteCall` records what is about to run, for the Tester view's panel. Then comes the app's only INSERT. It is a **parameterised query**: the SQL text has `?` placeholders, the nine values are handed over separately, and the mysql2 driver escapes each one, so nothing typed in the form can become part of the SQL command. The form sends no branch: `registered_at_branch_id` is the agent's own `branchId`.
-4. Before the row is saved, MySQL runs the trigger `trg_customer_bi`. It refuses a date of birth in the future, and a customer aged 18 or over with no NIC. The UNIQUE key `uq_customer_nic` refuses a NIC that another customer already has.
+4. Before the row is saved, MySQL runs the trigger `trg_customer_bi`. It refuses a date of birth in the future, a customer aged 18 or over with no NIC, an agent who is not ACTIVE, and a branch that is not the agent's. The UNIQUE key `uq_customer_nic` refuses a NIC that another customer already has.
 5. If the INSERT fails: error 1062 on `uq_customer_nic` becomes HTTP **409** "A customer with this NIC is already registered" on the `nic` field. A trigger refusal goes through `ruleError(err, CUSTOMER_FIELDS)`: HTTP **422** with the trigger's own message, and the patterns in `CUSTOMER_FIELDS` pick the field (a message containing "NIC" → `nic`, "date of birth" → `dob`, "agent" → `agentId`). Any other error goes on to the shared error handler in `errors.js`.
 6. On success, `noteResult` records the new `insertId`, `findCustomer` reads the whole customer back with the agent's and branch's names, and `sendData` answers 201 with `{ data: customer }`.
 
@@ -370,7 +370,7 @@ mysql -u root -p --table < tests/run_all.sql
 
 Expect the last table to say **ALL 166 CHECKS PASS**. `run_all.sql` reloads the database before and after the tests, so it also wipes anything entered through the app.
 
-## Likely viva questions
+## Questions and answers about these files
 
 **1. Why are some rules triggers and not CHECK constraints?** MySQL refuses non-deterministic functions such as `CURDATE()` in a CHECK (error 3814), and a CHECK cannot look at another table. "NIC from 18", "date of birth not in the future" and "the agent must be ACTIVE" need today's date or another table, so they are triggers.
 
@@ -398,7 +398,7 @@ Every value travels as a `?` placeholder, and mysql2 escapes it, so it can never
 
 **12. What is a parameterised query, and why do you still escape `%` and `_`?** The SQL has `?` placeholders and the values are passed separately; mysql2 escapes each one, so typed text can never change the command. Every value my routes send to MySQL travels that way, even the `LIMIT` number. Escaping is a separate problem: inside `LIKE`, `%` and `_` are wildcards, so `likePattern` puts a backslash before them and a search for `50%` means exactly that.
 
-**13. What stops an ON_LEAVE agent from registering a customer?** The "Acting as" list shows only ACTIVE agents, but an agent ID can still be typed or sent straight to the API. The route reads the agent first and answers 422 "Only an ACTIVE agent can register a customer", so nothing is inserted. The database does not check this yet, which is why the route does.
+**13. What stops an ON_LEAVE agent from registering a customer?** The "Acting as" list shows only ACTIVE agents, but an agent ID can still be typed or sent straight to the API. The route reads the agent first and answers 422 "Only an ACTIVE agent can register a customer", so nothing is inserted. If the route were skipped, the trigger `trg_customer_bi` would refuse it too: two layers.
 
 **14. Why don't you use ordinary JavaScript numbers for money?**
 They are binary floating-point numbers, so `0.1 + 0.2` is `0.30000000000000004`, and very large amounts cannot be held exactly. Money stays text such as `'1500.50'`, and `money.js` adds and compares it as whole cents in BigInt, which is exact at any size. The test "0.10 + 0.20 is exactly 0.30" shows it.
