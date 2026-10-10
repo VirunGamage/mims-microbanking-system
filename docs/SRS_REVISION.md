@@ -1,8 +1,8 @@
 # SRS v3.1 revision — replacement text
 
-<!-- The replacement text for every passage of the SRS, the Briefing, the Viva Guide and the design documents that describes the system before the procedures and the app were built, so the documents can be regenerated from it. -->
+<!-- The replacement text for every passage of the SRS, the Briefing and the design documents that describes the system before the procedures and the app were built, so the documents can be regenerated from it. -->
 
-The SRS v3.0 (24 September 2026), the Briefing, the Viva Guide and the design documents describe the system before the procedures and the app existed. This file gives the replacement text for every outdated passage, so the PDFs can be regenerated as **v3.1**. Each numbered section is one commit. Numbers in this file were checked against the repository and a freshly loaded database (MySQL 8.0.46).
+The SRS v3.0 (24 September 2026), the Briefing and the design documents describe the system before the procedures and the app existed. This file gives the replacement text for every outdated passage, so the PDFs can be regenerated as **v3.1**. Each numbered section is one commit. Numbers in this file were checked against the repository and a freshly loaded database (MySQL 8.0.46).
 
 **Facts the new text relies on** (all verifiable with `scripts/load_all.sql` and `tests/run_all.sql`):
 
@@ -12,7 +12,7 @@ The SRS v3.0 (24 September 2026), the Briefing, the Viva Guide and the design do
 | Triggers | 3 | 8: `trg_customer_bi`, `trg_customer_bu`, `trg_transaction_bi`, `trg_agent_branch_lock` (schema); `trg_single_active_fd`, `trg_savings_balance_guard` (procedures/04); `trg_transaction_bu`, `trg_transaction_bd` (procedures/05) |
 | Routines | not yet written | 18 (procedures and one function), 3 views, 1 event (created disabled) |
 | Sample transactions | about 150 | 230 |
-| Validator checks | 33 (SRS) / 34 (Briefing, Viva Guide) | 36 |
+| Validator checks | 33 (SRS) / 34 (Briefing) | 36 |
 | Tests | — | 166 SQL checks in `tests/` and 18 database checks in `backend/test/integration/`; every rule was also broken on purpose to prove its test fails (68 breakages, all caught) |
 | QA UI | Python/Streamlit, no API tier | React web pages + a thin Node.js/Express API that only calls the database's procedures |
 
@@ -26,7 +26,7 @@ The SRS v3.0 (24 September 2026), the Briefing, the Viva Guide and the design do
 |---|---|---|---|
 | Group 27 | *date of the commit* | Aligned with the implemented system: the QA UI is a React web app with a thin Node.js/Express API tier (it only calls the database's procedures); procedures, functions, triggers, views and tests are implemented; counts updated (13 tables, 8 triggers, 230 sample transactions, 36 validation checks); requirement wording aligned with the implementation. Full list in Appendix E. | 3.1 |
 
-**Why:** the Viva Guide (§17) and TBD item 7 promised that any change to the UI's scope would be recorded here.
+**Why:** TBD item 7 promised that any change to the UI's scope would be recorded here.
 
 ## 2. SRS §2.4 Operating Environment
 
@@ -87,7 +87,7 @@ The SRS v3.0 (24 September 2026), the Briefing, the Viva Guide and the design do
 
 - Replace "procedures, functions and further triggers are being developed as the next deliverable" with "the procedures, functions, triggers, views and the daily interest event are implemented in `procedures/` and `reports/`".
 - **SAVINGS_ACCOUNT**: add the row `next_interest_date | date | | yes | | the next savings-interest due date; set to open date + 30 days at opening and moved on by each posting`, and the index `idx_account_status_interest (status, next_interest_date)`.
-- Add a short note: "Two helper tables, `TXN_REF_SEQ` and `ACCOUNT_NO_SEQ`, hand out reference numbers and account numbers through AUTO_INCREMENT. They are not part of the business model." (Regenerate the tables from the running database, as decided in Viva Guide §1.)
+- Add a short note: "Two helper tables, `TXN_REF_SEQ` and `ACCOUNT_NO_SEQ`, hand out reference numbers and account numbers through AUTO_INCREMENT. They are not part of the business model." (Regenerate the tables from the running database.)
 
 ## 11. Appendix C (TBD list), item 7
 
@@ -105,21 +105,11 @@ The SRS v3.0 (24 September 2026), the Briefing, the Viva Guide and the design do
 - **§3 Files**: validator "34 read-only checks" → "36"; add rows for `procedures/`, `reports/`, `scripts/load_all.sql`, `tests/run_all.sql`, `backend/`, `frontend/`, `docs/`.
 - **§4 Next steps**: replace with: "1. Each member merges their slice (see the README). 2. Run `tests/run_all.sql` (ALL 166 CHECKS PASS) and the validator (36 PASS). 3. Apply the proposed SQL changes in the owners' own commits. 4. Rehearse the demo (`docs/DEMO_SCRIPT.md`)."
 
-## 14. Viva Guide
-
-- **Part 1, first bullets**: "11 tables and 3 triggers" → "13 tables (11 business + 2 helper) and 8 triggers"; "all 34 checks pass" → "all 36 checks pass on the sample data (230 transactions)".
-- **Part 1, "honest gaps"**: delete "Procedures, functions and most triggers … are specified in the SRS but not yet written" and "The QA UI is not started". Replace "about 150 transactions" with "230 transactions". Add the current honest gaps: the two data checks (NIC at 18, outgrown plans) are on-demand only; closing an FD does not check business hours; the daily interest event is created disabled (the Tester view's Run interest does the same three steps).
-- **§15, last sentence**: replace "Today this is a rule for procedures; the database does not yet block UPDATE or DELETE on this table (a protecting trigger is planned)." with "Two triggers (`trg_transaction_bu`, `trg_transaction_bd`) refuse every UPDATE and DELETE on this table, and the app's database user has no UPDATE or DELETE rights at all."
-- **§17 Decision**: replace "a lightweight QA UI in Python. The UI calls the database directly; there is no separate API tier." with "a lightweight QA web app: React pages and a thin Node.js/Express API. The API only calls the procedures, reads, and registers customers; it connects as `mims_app`, which cannot change balances." Keep the sentence about flexible scope and add "(recorded as SRS v3.1)".
-- **§17 "Where is the backend?"**: new answer: "The rules are in the database: procedures, functions and triggers. The Node server is only a pass-through, because a browser cannot talk to MySQL directly; it calls the procedures and returns their answer, and its database user isn't even allowed to edit a balance."
-- **§18**: "passes all 34 validation checks" → "passes all 36 validation checks; 166 SQL test checks and 18 database checks pass, and each test was shown to fail when its rule was deliberately broken (68 breakages)".
-- **Part 4 table**: "How do you stop two ACTIVE FDs on one account?" → "The opening procedure checks it, and `trg_single_active_fd` refuses a second ACTIVE FD even on a direct insert (two layers)." "What is not finished?" → "Nothing required; the known gaps are listed in Part 1." "How does an FD affect the savings balance?" → drop "(the procedures will guarantee it…)" and say "the procedures guarantee it and the tests check every account".
-
-## 15. ERD, Data Dictionary and Schema-vs-ERD Audit
+## 14. ERD, Data Dictionary and Schema-vs-ERD Audit
 
 - ERD and Data Dictionary: add `SAVINGS_ACCOUNT.next_interest_date` (date, nullable) and its index; mention the two helper tables in a note (not as entities).
 - Data Dictionary §2.11 and §3, Audit §5: replace each "not yet written" statement with the implemented routine's name (see the table at the top of this file).
 
-## 16. GitHub repository "About" text
+## 15. GitHub repository "About" text
 
 **Replace** "…MySQL and Python/Streamlit…" **with:** "MIMS: the central MySQL 8.0 database for B-Trust microfinance (Sri Lanka) — schema, stored procedures, triggers, reports and tests — with a QA web app (React + a thin Node.js/Express API)."
