@@ -20,6 +20,7 @@ test('ageFromDob counts full years and waits for a real date', () => {
   assert.equal(ageFromDob('2008-10-06', TODAY), 17);
   assert.equal(ageFromDob('2008-02-30', TODAY), null);
   assert.equal(ageFromDob('', TODAY), null);
+  assert.equal(ageFromDob('2030-01-01', TODAY), null);
 });
 
 test('a complete child registration has no errors, and an adult needs a NIC', () => {
