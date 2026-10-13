@@ -333,6 +333,7 @@ function FdTable({ state, onClose }) {
 
 function CloseDialog({ fd, onCancel, onClosed }) {
   const { agentId } = useAgent();
+  const status = useBranchStatus();
   const [account, setAccount] = useState(null);
   const [loadError, setLoadError] = useState(null);
   const [holderId, setHolderId] = useState('');
@@ -382,6 +383,12 @@ function CloseDialog({ fd, onCancel, onClosed }) {
         finished; there is no other penalty. The {fd.payouts} payouts already made ({formatMoney(fd.interestPaid)}) stay in the
         account.
       </p>
+      {status.data && !status.data.branchOpen && ( 
+        <div className="banner banner--warning" role="note"> 
+          <p className="banner__title">The branch is closed now</p> 
+          <p>Fixed deposits are only closed Monday to Friday, during business hours. The database will refuse it until then.</p> 
+        </div> 
+      )}
       {fd.payoutDue && (
         <div className="banner banner--warning" role="note">
           <p className="banner__title">A payout is due but not posted</p>

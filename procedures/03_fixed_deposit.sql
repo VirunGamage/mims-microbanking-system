@@ -1,5 +1,5 @@
 -- Fixed Deposit closure and maturity (REQ-FD-06, REQ-FD-08). Both pay the principal back into the savings account as an FD_CLOSURE transaction.
--- Needs mims_schema.sql, the trg_savings_balance_guard trigger (04_triggers.sql) and PROC_NEXT_TXN_REF (01_deposit_withdrawal.sql).
+-- Needs mims_schema.sql, the trg_savings_balance_guard trigger (04_triggers.sql) and PROC_NEXT_TXN_REF and PROC_CHECK_BUSINESS_HOURS (01_deposit_withdrawal.sql).
 -- PROC_PROCESS_FD_MATURITY has to run after PROC_RUN_FD_INTEREST (07_interest_posting.sql).
 
 USE mims;
@@ -9,8 +9,11 @@ DROP PROCEDURE IF EXISTS PROC_PROCESS_FD_MATURITY;
 
 DELIMITER $$
 
--- Closes an ACTIVE FD early. Only the PRIMARY holder can do it. 
+-- Closes an ACTIVE FD early. Only the PRIMARY holder can do it, during business hours, while the savings account is ACTIVE. 
 -- The principal goes back to the savings balance and the interest of the unfinished 30 day cycle is forfeited, no penalty (REQ-FD-08).
+--
+-- Lock order: every procedure that touches both locks the savings account first and the FD second (PROC_OPEN_FIXED_DEPOSIT, PROC_POST_FD_INTEREST and PROC_PROCESS_FD_MATURITY too). 
+-- If two procedures took them in opposite orders, an open and a close on the same account at the same moment could each hold one lock and wait for the other and MySQL would kill one (deadlock).
 
 CREATE PROCEDURE PROC_CLOSE_FIXED_DEPOSIT (
     IN p_fd_id INT,
@@ -18,7 +21,8 @@ CREATE PROCEDURE PROC_CLOSE_FIXED_DEPOSIT (
     IN p_agent_id INT
 )
 BEGIN
-    DECLARE v_account_id INT;
+    DECLARE v_account_id INT DEFAULT NULL; 
+    DECLARE v_account_status VARCHAR(10);
     DECLARE v_amount DECIMAL(14,2);
     DECLARE v_status VARCHAR(10) DEFAULT NULL;
     DECLARE v_is_primary INT;
@@ -38,15 +42,25 @@ BEGIN
 
     START TRANSACTION;
 
-    SELECT account_id, amount, status, next_payout_date, maturity_date
-    INTO v_account_id, v_amount, v_status, v_next_payout, v_maturity
-    FROM FIXED_DEPOSIT
-    WHERE fd_id = p_fd_id
-    FOR UPDATE;
+    CALL PROC_CHECK_BUSINESS_HOURS();   -- Same business hours as every other money movement made by an agent
 
-    IF v_status IS NULL THEN   -- No row came back, so the FD does not exist.
+    -- An FD never moves to another account, so its account can be read before any lock is taken 
+    SELECT account_id INTO v_account_id FROM FIXED_DEPOSIT WHERE fd_id = p_fd_id; 
+    IF v_account_id IS NULL THEN   -- No row came back, so the FD does not exist.
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Fixed Deposit not found';
     END IF;
+
+    -- The savings account first, then the FD (see the lock order above) 
+    SELECT status INTO v_account_status 
+    FROM SAVINGS_ACCOUNT 
+    WHERE account_id = v_account_id 
+    FOR UPDATE; 
+    
+    SELECT amount, status, next_payout_date, maturity_date 
+    INTO v_amount, v_status, v_next_payout, v_maturity 
+    FROM FIXED_DEPOSIT 
+    WHERE fd_id = p_fd_id 
+    FOR UPDATE;
 
     IF v_status <> 'ACTIVE' THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Fixed Deposit is not ACTIVE';
@@ -60,6 +74,11 @@ BEGIN
 
     IF v_is_primary = 0 THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Only the PRIMARY holder can close this Fixed Deposit';
+    END IF;
+
+    -- No money moves in or out of a FROZEN or CLOSED account (the same rule as deposits and withdrawals) 
+    IF v_account_status <> 'ACTIVE' THEN 
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Account is not active'; 
     END IF;
 
     IF v_next_payout IS NOT NULL AND v_next_payout <= CURDATE() THEN
@@ -79,13 +98,8 @@ BEGIN
 
     CALL PROC_NEXT_TXN_REF(v_ref_no);  -- Same TXN + 7 digits format as every other transaction.
 
-    -- Guard flag is on only for this one UPDATE, see PROC_PROCESS_DEPOSIT.
-    SET @allow_balance_update = 1;
-    UPDATE SAVINGS_ACCOUNT
-    SET balance = balance + v_amount
-    WHERE account_id = v_account_id;
-    SET @allow_balance_update = 0;
-
+    -- The transaction row goes in before the balance changes, the same order as every other procedure.
+    -- trg_transaction_bi refuses it here if the agent is not ACTIVE and the handler undoes the FD update above.
     INSERT INTO `TRANSACTION` (
         transaction_type, amount, reference_no, channel,
         account_id, processed_by_agent_id, fd_id
@@ -93,6 +107,12 @@ BEGIN
         'FD_CLOSURE', v_amount, v_ref_no, 'BRANCH',
         v_account_id, p_agent_id, p_fd_id
     );
+    -- Guard flag is on only for this one UPDATE, see PROC_PROCESS_DEPOSIT. 
+    SET @allow_balance_update = 1; 
+    UPDATE SAVINGS_ACCOUNT 
+    SET balance = balance + v_amount 
+    WHERE account_id = v_account_id; 
+    SET @allow_balance_update = 0;
 
     COMMIT;
 END$$
@@ -109,6 +129,7 @@ BEGIN
     DECLARE v_amount DECIMAL(14,2);
     DECLARE v_ref_no VARCHAR(30);
     DECLARE v_still_active INT;
+    DECLARE v_locked_account INT;
 
     DECLARE cur CURSOR FOR
         SELECT fd_id, account_id, amount
@@ -136,6 +157,12 @@ BEGIN
 
         START TRANSACTION;
 
+        -- The savings account is locked before the FD, the same order as PROC_CLOSE_FIXED_DEPOSIT (no deadlock) 
+        SELECT account_id INTO v_locked_account 
+        FROM SAVINGS_ACCOUNT 
+        WHERE account_id = v_account_id 
+        FOR UPDATE;
+        
         -- Checked again under a lock because the FD may have been closed early since the cursor opened.
         -- Stops the principal being paid back twice.
         SELECT COUNT(*) INTO v_still_active

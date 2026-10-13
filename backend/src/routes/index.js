@@ -32,7 +32,7 @@ export async function createApiRouter({ log = console.log } = {}) {
     noteCall(res, 'PROC_CHECK_BUSINESS_HOURS', []);
     const { serverTime } = await checkConnection();
     let branchOpen = true;
-    let message = 'The branch is open for deposits, withdrawals, new accounts and new fixed deposits.';
+    let message = 'The branch is open for deposits, withdrawals, new accounts, new fixed deposits and early fixed-deposit closures.';
     try {
       await callProc('PROC_CHECK_BUSINESS_HOURS');
     } catch (err) {
