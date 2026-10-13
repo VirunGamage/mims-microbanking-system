@@ -5,6 +5,7 @@ import { createApp } from './app.js';
 import { ConfigError, loadConfig } from './config.js';
 import { checkConnection, closePool, initPool } from './db.js';
 import { startupProblem } from './errors.js';
+import { mailSettings, mailStatusLine } from './notify.js';
 
 function stop(message) {
   console.error(`\nThe MIMS API could not start.\n${message}\n`);
@@ -34,6 +35,7 @@ async function main() {
     if (err) stop(startupProblem(err, config));
     console.log(`MIMS API listening on http://localhost:${config.port}  (check http://localhost:${config.port}/api/health)`);
     if (config.staticDir) console.log(`Serving the app pages from ${config.staticDir}`);
+    console.log(mailStatusLine(mailSettings()));
   });
 
   const shutDown = async () => {

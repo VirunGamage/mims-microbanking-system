@@ -57,6 +57,44 @@ data. When the log shows `MIMS API listening`, open **http://localhost:8080**.
 - Those passwords are local-only defaults. To choose your own, copy `.env.example` to `.env` before the first start
   (or run `docker compose down -v` first, because the passwords are set when the database is created).
 
+## Email notifications
+
+After every deposit, withdrawal, new account, new fixed deposit and early FD closure, each holder of the account who has
+an e-mail address gets a receipt: the amount, the reference number, the new balance and the agent. A deposit flagged
+for review (above LKR 1,000,000) also sends an alert to the bank. The e-mails are sent by `backend/src/notify.js`
+**after** the stored procedure has committed, so a slow or broken mail server never delays or undoes a transaction;
+a failed e-mail is only written to the server log.
+
+**Try it without any e-mail account** (Docker). Create a file `.env` next to `docker-compose.yml` (or add to it) with:
+
+```
+SMTP_HOST=mail
+SMTP_PORT=1025
+MAIL_DEMO_INBOX=demo@btrust.local
+```
+
+then run `docker compose --profile mail up --build`, make a deposit in the app, and open **http://localhost:8025**:
+the receipt is in that test inbox (a pretend mail server, Mailpit, that keeps every e-mail instead of sending it).
+
+**Real e-mails with Gmail.** Use a Gmail account made for the project, not a personal one. In that Google account turn
+on 2-Step Verification, then create an **App password** (Google Account, Security, App passwords). In `.env`:
+
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_USER=the.project.address@gmail.com
+SMTP_PASS=the 16-letter app password
+MAIL_DEMO_INBOX=the inbox where you want to see every e-mail
+MAIL_REVIEW_TO=the inbox for the large-deposit alerts
+```
+
+and restart with `docker compose up -d`. The app's log line `E-mail notifications: on ...` says where e-mails go.
+Without Docker, put the same lines in `backend/.env`.
+
+**Keep `MAIL_DEMO_INBOX` set.** It sends every e-mail to that one address, with a first line saying which customer it
+was for. The sample customers' addresses (such as `liam@mail.com`) are made up, but real people could own them.
+Receipts only go to customers' own addresses with `MAIL_SEND_TO_CUSTOMERS=true`, which is for real data only.
+
 ## Set up (once per computer)
 
 Run everything from the repository folder (the one that contains this README).
