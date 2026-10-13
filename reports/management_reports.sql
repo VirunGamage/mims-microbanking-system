@@ -2,6 +2,9 @@
 -- Group 27 - Management Reports (REQ-RPT-01 to REQ-RPT-06)
 
 DELIMITER $$
+-- The date filters below compare txn_timestamp as a plain range (from midnight of the first day up to, but not
+-- including, midnight after the last day). Writing DATE(txn_timestamp) BETWEEN ... gives the same rows but hides the
+-- column from the indexes on TRANSACTION, so MySQL would read every row (scripts/perf_check.sql measures it).
 
 -- This one counts how many transactions each agent did and the total amount, between two dates
 DROP PROCEDURE IF EXISTS RPT_AGENT_WISE_TRANSACTIONS$$
@@ -21,7 +24,8 @@ BEGIN
         ON b.branch_id = a.branch_id
     LEFT JOIN `TRANSACTION` t
         ON t.processed_by_agent_id = a.agent_id
-       AND DATE(t.txn_timestamp) BETWEEN p_start_date AND p_end_date
+       AND t.txn_timestamp >= p_start_date
+AND t.txn_timestamp < p_end_date + INTERVAL 1 DAY    -- uses idx_txn_agent_date
     GROUP BY a.agent_id, agent_name, b.branch_name
     ORDER BY total_value DESC;
 END$$
@@ -86,6 +90,8 @@ CREATE PROCEDURE RPT_MONTHLY_INTEREST_DISTRIBUTION(
     IN p_month INT
 )
 BEGIN
+    -- The first day of the month. MAKEDATE gives 1 January of the year and the months are added to it.
+    DECLARE v_month_start DATE DEFAULT MAKEDATE(p_year, 1) + INTERVAL (p_month - 1) MONTH;
     SELECT
     sp.plan_name,
     COUNT(DISTINCT t.account_id) AS accounts_credited,
@@ -104,8 +110,8 @@ BEGIN
     JOIN SAVINGS_PLAN sp
         ON sp.plan_id = sa.plan_id
     WHERE t.transaction_type IN ('SAVINGS_INTEREST','FD_INTEREST')
-      AND YEAR(t.txn_timestamp)  = p_year
-      AND MONTH(t.txn_timestamp) = p_month
+      AND t.txn_timestamp >= v_month_start
+AND t.txn_timestamp < v_month_start + INTERVAL 1 MONTH    -- uses idx_txn_type_date
     GROUP BY sp.plan_name
     ORDER BY total_interest_paid DESC;
 END$$
@@ -132,7 +138,8 @@ BEGIN
         ON ah.customer_id = c.customer_id
     JOIN `TRANSACTION` t
         ON t.account_id = ah.account_id
-       AND DATE(t.txn_timestamp) BETWEEN p_start_date AND p_end_date
+       AND t.txn_timestamp >= p_start_date
+       AND t.txn_timestamp < p_end_date + INTERVAL 1 DAY    -- uses idx_txn_account_date
        AND t.transaction_type IN ('DEPOSIT', 'WITHDRAWAL')
     GROUP BY c.customer_id, customer_name, c.NIC
     ORDER BY c.customer_id;
