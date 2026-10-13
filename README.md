@@ -17,6 +17,7 @@ Group 27 — Database Systems project.
 | `backend/` | Node.js + Express API on port 3001: it only calls stored procedures and runs read-only queries |
 | `frontend/` | React + Vite web pages on port 5173 |
 | `docs/` | QA user guide, demo script, SRS revision notes, and a walkthrough of each person's files |
+| `.github/workflows/` | `ci.yml`: the automatic checks that run on every push and pull request (see *Continuous integration*) |
 | `Dockerfile`, `docker-compose.yml`, `docker/` | The two container images (the app, and MySQL with the MIMS database) and the file that starts both; see *Run with Docker* |
 
 ## What you need
@@ -164,6 +165,36 @@ Then open **http://localhost:5173**. To stop either one, press `Ctrl + C` in its
 The data checks expect exactly 15 customers and 10 fixed deposits, so reload the database before running them if you have used the app.
 
 **About the SQL tests.** Each test sets its own session clock to a fixed moment, so business hours, ages and interest dates give the same result at any time of day. `run_all.sql` loads the database, runs the five test files and loads the database again at the end (test transactions cannot be deleted), so it also wipes anything entered through the app. The last table must say `ALL 166 CHECKS PASS`. To run one file on its own, load `tests/_helpers.sql` first.
+
+## Continuous integration (CI)
+
+Every push to `main` and every pull request starts GitHub Actions (`.github/workflows/ci.yml`). It runs three jobs on a clean machine:
+
+| Job | What it runs |
+|---|---|
+| Frontend tests and build | `npm ci`, `npm test` and `npm run build` in `frontend/` |
+| Backend unit tests | `npm ci` and `npm test` in `backend/` |
+| SQL tests (166 checks) | starts a fresh MySQL 8.0 service, runs `tests/run_all.sql`, and fails unless the result is `ALL 166 CHECKS PASS` |
+
+A pull request is merged only when all three jobs show a green tick (the Checks box of the pull request, or the Actions tab on GitHub). Because the SQL job starts from an empty database on a new machine, it proves that the tests do not depend on anything on one person's computer.
+
+## User experience (UX)
+
+- **Keyboard:** every page works with the keyboard alone. A clear focus ring is always visible, and a "Skip to content" link jumps past the menu.
+- **Screen readers:** errors, loading messages and results are announced (`role="alert"`, `aria-live`), and each form field is linked to its hint and error message.
+- **Responsive layout:** a sidebar on wide screens and a top bar with a Menu button below about 900 px.
+- **Dialogs:** confirmations use the browser's own dialog, which keeps focus inside and closes with Escape.
+- **Plain words:** an error is shown next to the field it belongs to, in the database's own words. A state is never shown by colour alone, there is always a word as well (for example "due, not posted yet").
+- **Consistent design:** every colour, font and size comes from one file of design tokens (`frontend/src/styles/tokens.css`).
+
+## Bonus features
+
+| Feature | Where |
+|---|---|
+| User experience | *User experience (UX)* |
+| CI/CD | *Continuous integration (CI)* |
+| Containerization | *Run with Docker* |
+| E-mail notifications | *Email notifications* |
 
 ## Team Member Contributions (database)
 
