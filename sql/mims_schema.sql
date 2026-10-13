@@ -264,7 +264,9 @@ CREATE TABLE `TRANSACTION` (
         ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE=InnoDB;
 
--- Indexes made to make lookups faster, each one matches a common query pattern.-- The date column is second in each, so a query must compare txn_timestamp as a plain range-- (txn_timestamp >= start AND txn_timestamp < end) to use it. Wrapping it in DATE(), YEAR() or MONTH() hides the-- column from the index and MySQL reads every row instead (scripts/perf_check.sql measures it).
+-- Indexes made to make lookups faster, each one matches a common query pattern.
+-- The date column is second in each, so a query must compare txn_timestamp as a plain range (txn_timestamp >= start AND txn_timestamp < end) to use it. 
+-- Wrapping it in DATE(), YEAR() or MONTH() hides the column from the index and MySQL reads every row instead (scripts/perf_check.sql measures it).
 CREATE INDEX idx_txn_account_date ON `TRANSACTION`(account_id, txn_timestamp);   -- An account's history, its daily withdrawals, customer activity
 CREATE INDEX idx_txn_agent_date   ON `TRANSACTION`(processed_by_agent_id, txn_timestamp);   -- An agent's transactions in a period (agent-wise report)
 CREATE INDEX idx_txn_type_date    
