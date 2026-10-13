@@ -121,8 +121,7 @@ function Rules({ settings }) {
       <div>
         <dt>Opening hours</dt>
         <dd>
-          Monday to Friday, {s.businessDayStart}–{s.businessDayEnd}, by the database clock. Deposits, withdrawals, new
-          accounts and new fixed deposits are refused outside these hours.
+          Monday to Friday, {s.businessDayStart}–{s.businessDayEnd}, by the database clock. Deposits, withdrawals, new accounts, new fixed deposits and early fixed-deposit closures are refused outside these hours.
         </dd>
       </div>
       <div>

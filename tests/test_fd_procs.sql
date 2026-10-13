@@ -160,8 +160,7 @@ CALL mims_test.expect_refusal(@suite, 'FD13', 'An FD that is already CLOSED cann
 CALL mims_test.expect_refusal(@suite, 'FD13', 'An FD that does not exist cannot be closed',
     "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(999999, @primary, @agent)", 'Fixed Deposit not found');
 
--- FD14: all or nothing. PROC_CLOSE_FIXED_DEPOSIT updates the FD and the balance before it inserts the FD_CLOSURE row;
--- an ON_LEAVE agent is refused at that insert (trg_transaction_bi), so both updates must be undone.
+-- FD14: all or nothing. PROC_CLOSE_FIXED_DEPOSIT updates the FD before it inserts the FD_CLOSURE row; an ON_LEAVE agent is refused at that insert (trg_transaction_bi), so the FD update must be undone.
 -- The payouts due by today are posted first, so these closes test only their own rule.
 CALL PROC_POST_FD_INTEREST(@fd_min, '2026-11-20', @n);
 CALL PROC_POST_FD_INTEREST(@fd_joint, '2026-11-20', @n);
@@ -177,18 +176,31 @@ CALL mims_test.check_that(@suite, 'FD14', '... and the FD and the balance are le
     CONCAT_WS(' ', 'status', (SELECT status FROM FIXED_DEPOSIT WHERE fd_id = @fd_min),
               'balance', (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @min_acc)));
 
--- FD15: PROC_CLOSE_FIXED_DEPOSIT has no business-hours check, so this records today's behaviour.
--- If the check is added, change this to expect_refusal with the business-hours message.
+-- FD15: closing follows the same business hours as opening
 CALL mims_test.clock_at('2026-11-21 10:00:00');
-CALL mims_test.expect_ok(@suite, 'FD15', 'Closing an FD on a Saturday works (today the close has no business-hours check)',
+CALL mims_test.expect_refusal(@suite, 'FD15', 'Closing an FD on a Saturday is refused', 
+    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd_joint, @primary, @agent)", @hours); 
+CALL mims_test.clock_at('2026-11-20 16:00:01'); 
+CALL mims_test.expect_refusal(@suite, 'FD15', 'Closing an FD at 16:00:01 is refused', 
+    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd_joint, @primary, @agent)", @hours); 
+CALL mims_test.clock_at('2026-11-20 15:00:00'); 
+CALL mims_test.expect_ok(@suite, 'FD15', 'Closing it on a weekday at 15:00 works',
     "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd_joint, @primary, @agent)");
 
--- FD16: balances and the one-FD rule still hold
-CALL mims_test.check_that(@suite, 'FD16', 'Every test account''s balance equals its transaction history',
+-- FD16: no money moves into a FROZEN account, so an FD on one cannot be closed. @spare (with @fd_new from FD04) is frozen only for this test. 
+UPDATE SAVINGS_ACCOUNT SET status = 'FROZEN' WHERE account_id = @spare; 
+CALL mims_test.expect_refusal(@suite, 'FD16', 'Closing an FD whose savings account is FROZEN is refused', 
+    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd_new, @primary, @agent)", 'Account is not active'); 
+UPDATE SAVINGS_ACCOUNT SET status = 'ACTIVE' WHERE account_id = @spare; 
+CALL mims_test.check_that(@suite, 'FD16', '... and the FD is still ACTIVE', 
+    (SELECT status FROM FIXED_DEPOSIT WHERE fd_id = @fd_new) = 'ACTIVE', 'the FD was closed');
+    
+-- FD17: balances and the one-FD rule still hold 
+CALL mims_test.check_that(@suite, 'FD17', 'Every test account''s balance equals its transaction history',
     (SELECT COUNT(*) FROM SAVINGS_ACCOUNT
      WHERE account_id IN (@acc, @joint, @min_acc, @spare, @frozen) AND balance = mims_test.ledger_balance(account_id)) = 5,
     'at least one balance differs from its transactions');
-CALL mims_test.check_that(@suite, 'FD16', 'No account in the database has more than one ACTIVE FD',
+CALL mims_test.check_that(@suite, 'FD17', 'No account in the database has more than one ACTIVE FD',
     (SELECT COUNT(*) FROM (SELECT account_id FROM FIXED_DEPOSIT WHERE status = 'ACTIVE'
                            GROUP BY account_id HAVING COUNT(*) > 1) x) = 0,
     'an account has two ACTIVE FDs');

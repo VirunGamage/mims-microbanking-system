@@ -186,7 +186,7 @@ BEGIN
     DECLARE v_rate            DECIMAL(5,2);
     DECLARE v_due             DATE;
     DECLARE v_maturity        DATE;
-    DECLARE v_account_id      INT;
+    DECLARE v_account_id      INT DEFAULT NULL;
     DECLARE v_account_status  VARCHAR(10) DEFAULT NULL;
     DECLARE v_cycle_days      INT;
     DECLARE v_stamp           DATETIME;
@@ -212,20 +212,23 @@ BEGIN
 
     START TRANSACTION;
 
-    SELECT status, amount, interest_rate, next_payout_date, maturity_date, account_id
-    INTO   v_status, v_amount, v_rate, v_due, v_maturity, v_account_id
-    FROM   FIXED_DEPOSIT
-    WHERE  fd_id = p_fd_id
-    FOR UPDATE;
+    -- An FD never moves to another account, so its account can be read before any lock is taken 
+    SELECT account_id INTO v_account_id FROM FIXED_DEPOSIT WHERE fd_id = p_fd_id;
 
-    IF v_status IS NULL THEN
+    IF v_account_id IS NULL THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Fixed Deposit not found';
     END IF;
 
-    -- The FD is locked first and then its account, the same order PROC_CLOSE_FIXED_DEPOSIT uses, so the two cannot deadlock
+    -- The account is locked first and then the FD, the same order every other procedure uses, so none of them can deadlock (see PROC_CLOSE_FIXED_DEPOSIT)
     SELECT status INTO v_account_status
     FROM SAVINGS_ACCOUNT
     WHERE account_id = v_account_id
+    FOR UPDATE;
+
+    SELECT status, amount, interest_rate, next_payout_date, maturity_date 
+    INTO   v_status, v_amount, v_rate, v_due, v_maturity 
+    FROM   FIXED_DEPOSIT 
+    WHERE  fd_id = p_fd_id 
     FOR UPDATE;
 
     IF v_status = 'ACTIVE' AND v_due IS NOT NULL AND v_account_status = 'ACTIVE' THEN

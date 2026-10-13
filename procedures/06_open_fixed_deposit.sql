@@ -60,7 +60,8 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Processing agent is not ACTIVE';
     END IF;
 
-    -- OF sa locks only the account row, so nobody else can change this balance or open an FD on it until the transaction ends
+    -- OF sa locks only the account row, so nobody else can change this balance or open an FD on it until the transaction ends.
+    -- The account is locked before any FD row, the order every procedure follows (see PROC_CLOSE_FIXED_DEPOSIT)
     SELECT sa.status, sa.balance, sp.minimum_balance
     INTO   v_status, v_balance, v_min_balance
     FROM   SAVINGS_ACCOUNT sa

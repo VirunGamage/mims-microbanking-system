@@ -37,6 +37,14 @@ test('a broken CHECK constraint becomes 422 without SQL text', () => {
   assert.ok(!mapped.message.includes('chk_'));
 });
 
+test('a deadlock or a lock wait timeout becomes 409 saying nothing was saved', () => { 
+  for (const errno of [1205, 1213]) { 
+    const mapped = mapError(sqlError(errno, '40001', 'Deadlock found when trying to get lock; try restarting transaction')); 
+    assert.equal(mapped.status, 409, String(errno)); 
+    assert.match(mapped.message, /Nothing was saved; please try again/); 
+  } 
+});
+
 test('MySQL being down or refusing the login becomes 503', () => {
   for (const code of ['ECONNREFUSED', 'ER_ACCESS_DENIED_ERROR', 'ER_BAD_DB_ERROR', 'PROTOCOL_CONNECTION_LOST']) {
     const mapped = mapError(Object.assign(new Error('x'), { code }));

@@ -62,6 +62,11 @@ export function mapError(err) {
       return { status: 400, message: 'One of the values is too long' };
     case 1264:
       return { status: 400, message: 'One of the numbers is too large' };
+    // Another change to the same account held its row lock: 1205 waited too long, 1213 was a deadlock and MySQL undid this one.
+    // Nothing was saved, so trying again is safe. 
+    case 1205: 
+    case 1213: 
+      return { status: 409, message: 'The database was busy with another change to this account. Nothing was saved; please try again.' };
     case 1292:
     case 1366:
       return { status: 400, message: 'One of the values is in the wrong format' };
