@@ -206,11 +206,14 @@ BEGIN
 
     -- FOR SHARE makes this a locking read. A plain SELECT reads an older snapshot from before the lock wait and could miss a withdrawal
     -- another agent just committed, so two withdrawals at the same time could both pass the limit.
+    -- "Today" is written as a range on txn_timestamp so idx_txn_account_date finds only today's rows (DATE(txn_timestamp) = CURDATE()
+    -- would read, and lock, the account's whole history).
     SELECT COALESCE(SUM(amount), 0) INTO v_withdrawn
     FROM `TRANSACTION`
     WHERE account_id = p_account_id
       AND transaction_type = 'WITHDRAWAL'
-      AND DATE(txn_timestamp) = CURDATE()
+      AND txn_timestamp >= CURDATE()
+      AND txn_timestamp < CURDATE() + INTERVAL 1 DAY
     FOR SHARE;
 
     IF v_withdrawn + p_amount > v_daily_limit THEN
