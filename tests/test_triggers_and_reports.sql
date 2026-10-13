@@ -110,13 +110,16 @@ CALL mims_test.expect_refusal(@suite, 'TR08', 'A transaction inserted directly f
      VALUES ('DEPOSIT', 100.00, CONCAT('TEST', UUID_SHORT()), 'BRANCH', @acc, @agent_on_leave)",
     'Processing agent is not ACTIVE');
 
--- TR09: only BRANCH transactions carry an agent (chk_txn_channel_agent), checked through the deposit procedure
-CALL mims_test.expect_check_violation(@suite, 'TR09', 'An ONLINE deposit with an agent is refused',
-    "CALL mims.PROC_PROCESS_DEPOSIT(@acc, 100.00, 'ONLINE', @agent, @ref, @bal)", 'chk_txn_channel_agent');
-CALL mims_test.expect_check_violation(@suite, 'TR09', 'A BRANCH deposit without an agent is refused',
-    "CALL mims.PROC_PROCESS_DEPOSIT(@acc, 100.00, 'BRANCH', NULL, @ref, @bal)", 'chk_txn_channel_agent');
-CALL mims_test.expect_ok(@suite, 'TR09', 'An ONLINE deposit without an agent is accepted',
-    "CALL mims.PROC_PROCESS_DEPOSIT(@acc, 100.00, 'ONLINE', NULL, @ref, @bal)");
+-- TR09: only BRANCH transactions carry an agent (chk_txn_channel_agent), even for a direct INSERT
+CALL mims_test.expect_check_violation(@suite, 'TR09', 'An ONLINE transaction inserted with an agent is refused',
+    "INSERT INTO mims.`TRANSACTION` (transaction_type, amount, reference_no, channel, account_id, processed_by_agent_id)
+     VALUES ('DEPOSIT', 100.00, CONCAT('TEST', UUID_SHORT()), 'ONLINE', @acc, @agent)", 'chk_txn_channel_agent');
+CALL mims_test.expect_check_violation(@suite, 'TR09', 'A BRANCH transaction inserted without an agent is refused',
+    "INSERT INTO mims.`TRANSACTION` (transaction_type, amount, reference_no, channel, account_id, processed_by_agent_id)
+     VALUES ('DEPOSIT', 100.00, CONCAT('TEST', UUID_SHORT()), 'BRANCH', @acc, NULL)", 'chk_txn_channel_agent');
+CALL mims_test.expect_ok(@suite, 'TR09', 'An ONLINE transaction inserted without an agent is accepted',
+    "INSERT INTO mims.`TRANSACTION` (transaction_type, amount, reference_no, channel, account_id, processed_by_agent_id)
+     VALUES ('DEPOSIT', 100.00, CONCAT('TEST', UUID_SHORT()), 'ONLINE', @acc, NULL)");
 
 -- TR10: the gap views (procedures/08_gap_queries.sql). Tomorrow the Teen customer turns 18 with no NIC and a Teen account.
 CALL mims_test.check_that(@suite, 'TR10', 'Today the 17-year-old is in neither gap view',
