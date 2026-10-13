@@ -161,5 +161,12 @@ CALL mims_test.check_that(@suite, 'TR13', 'Every account''s balance in the datab
     CONCAT_WS(' ', (SELECT COUNT(*) FROM SAVINGS_ACCOUNT WHERE balance <> mims_test.ledger_balance(account_id)),
               'accounts differ'));
 
+-- TR14: an account can have only one PRIMARY holder, even for a direct INSERT (uq_holder_one_primary)
+CALL mims_test.try_sql("INSERT INTO mims.ACCOUNT_HOLDER (customer_id, account_id, role) VALUES (@younger, @acc, 'PRIMARY')",
+                         @state, @message);
+CALL mims_test.check_that(@suite, 'TR14', 'A second PRIMARY holder inserted directly is refused',
+    @state = '23000' AND @message LIKE '%uq_holder_one_primary%', CONCAT_WS(' ', 'got:', @state, @message));
+CALL mims_test.check_that(@suite, 'TR14', '... and the account still has its one holder',
+    (SELECT COUNT(*) FROM ACCOUNT_HOLDER WHERE account_id = @acc) = 1, 'a holder row was added');
 CALL mims_test.clock_reset();
 CALL mims_test.report(@suite);

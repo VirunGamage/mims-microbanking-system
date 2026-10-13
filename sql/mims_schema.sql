@@ -38,8 +38,8 @@ CREATE TABLE BRANCH (
         ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE=InnoDB;
 
--- InnoDB already creates an index on every foreign key column automatically, so this one is technically redundant.
--- It is kept explicitly so the indexing is visible in the schema.
+-- InnoDB needs an index on every foreign key column. If none exists it makes one itself, but when we create our own (as
+-- here) MySQL drops its automatic one, so each foreign key column ends up with exactly one index, named by us.
 CREATE INDEX idx_branch_org_id ON BRANCH(org_id);
 
 -- Stores every agent who has ever worked in this bank. Agents are never deleted and are handled by status so that past transactions have an agent.
@@ -67,8 +67,7 @@ CREATE TABLE AGENT (
         ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE=InnoDB;
 
--- Indexes for branch_id and status lookups.
--- idx_agent_branch_id is technically redundant because InnoDB auto-indexes foreign key columns, it is kept for clarity.
+-- Indexes for branch_id and status lookups. idx_agent_branch_id is the foreign key index (see idx_branch_org_id).
 CREATE INDEX idx_agent_branch_id ON AGENT(branch_id);
 CREATE INDEX idx_agent_status    ON AGENT(status);
 
@@ -96,8 +95,7 @@ CREATE TABLE CUSTOMER (
         ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE=InnoDB;
 
--- Indexes on registered_by_agent_id and registered_at_branch_id.
--- Both are foreign key columns, so InnoDB would auto-index them anyway, they are kept explicitly for clarity.
+-- The foreign key indexes for registered_by_agent_id and registered_at_branch_id (see idx_branch_org_id).
 CREATE INDEX idx_customer_registering_agent ON CUSTOMER(registered_by_agent_id);
 CREATE INDEX idx_customer_registered_branch ON CUSTOMER(registered_at_branch_id);
 
@@ -159,14 +157,12 @@ CREATE TABLE SAVINGS_ACCOUNT (
         ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE=InnoDB;
 
--- Indexes for plan_id and status lookups.
--- idx_account_plan_id is technically redundant (InnoDB auto-indexes foreign key columns), kept for clarity.
--- idx_account_status is also covered by idx_account_status_interest below, since MySQL can use the leftmost
--- column of a composite index, it is kept for clarity.
+-- idx_account_plan_id is the foreign key index (see idx_branch_org_id).
 CREATE INDEX idx_account_plan_id ON SAVINGS_ACCOUNT(plan_id);
-CREATE INDEX idx_account_status  ON SAVINGS_ACCOUNT(status);
 -- This one is for the interest posting job specifically, it needs to find all ACTIVE accounts whose
--- next_interest_date is due, so indexing both columns together makes that search fast
+-- next_interest_date is due, so indexing both columns together makes that search fast.
+-- It also serves searches by status alone, because MySQL can use the leftmost column of a composite index, so a
+-- separate index on status would only be a duplicate that slows down every write.
 CREATE INDEX idx_account_status_interest ON SAVINGS_ACCOUNT(status, next_interest_date);
 
 -- Links customers to the savings accounts they hold. One row per customer per account, so a joint
@@ -176,6 +172,10 @@ CREATE TABLE ACCOUNT_HOLDER (
     account_id   INT NOT NULL,
     role         ENUM('PRIMARY','SECONDARY') NOT NULL DEFAULT 'PRIMARY',   -- Only the PRIMARY holder can open/close an FD or close the account
     PRIMARY KEY (customer_id, account_id),   -- Composite key, stops the same customer being added twice to the same account
+    -- Same idea as email_in_service on AGENT: this copies account_id only on the PRIMARY row and is NULL on SECONDARY-- rows. The UNIQUE constraint ignores NULLs, so an account can have any number of SECONDARY holders but never two-- PRIMARY ones (the reports would count its money twice).
+primary_of_account INT
+    GENERATED ALWAYS AS (CASE WHEN role = 'PRIMARY' THEN account_id END) STORED,
+CONSTRAINT uq_holder_one_primary UNIQUE (primary_of_account),
     CONSTRAINT fk_holder_customer
         FOREIGN KEY (customer_id) REFERENCES CUSTOMER(customer_id)
         ON DELETE RESTRICT ON UPDATE RESTRICT,
@@ -185,7 +185,7 @@ CREATE TABLE ACCOUNT_HOLDER (
 ) ENGINE=InnoDB;
 
 -- For looking up all holders of an account. The primary key only helps when searching by customer_id first, so this
--- index covers the account_id side (it is also a foreign key column, which InnoDB would auto-index anyway).
+-- index covers the account_id side (it is also the foreign key index for account_id).
 CREATE INDEX idx_holder_account_id ON ACCOUNT_HOLDER(account_id);
 
 -- Stores every fixed deposit. Each FD is funded from a savings account and gets paid back into the
@@ -213,7 +213,7 @@ CREATE TABLE FIXED_DEPOSIT (
         ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE=InnoDB;
 
--- account_id and fd_plan_id are foreign key columns, so InnoDB would auto-index them anyway, these are kept for clarity.
+-- The foreign key indexes for account_id and fd_plan_id (see idx_branch_org_id).
 CREATE INDEX idx_fd_account_id    ON FIXED_DEPOSIT(account_id);
 CREATE INDEX idx_fd_plan_id       ON FIXED_DEPOSIT(fd_plan_id);
 -- Same idea as idx_account_status_interest, this is for the FD interest job to quickly find ACTIVE
@@ -264,11 +264,13 @@ CREATE TABLE `TRANSACTION` (
         ON DELETE RESTRICT ON UPDATE RESTRICT
 ) ENGINE=InnoDB;
 
--- Indexes made to make lookups faster, each one matches a common query pattern
-CREATE INDEX idx_txn_account_date ON `TRANSACTION`(account_id, txn_timestamp);   -- Get an account's transaction history in order
-CREATE INDEX idx_txn_agent_date   ON `TRANSACTION`(processed_by_agent_id, txn_timestamp);   -- Get an agent's processed transactions in order
-CREATE INDEX idx_txn_type_date    ON `TRANSACTION`(transaction_type, txn_timestamp);   -- Filter by type (eg. all SAVINGS_INTEREST postings)
-CREATE INDEX idx_txn_fd_id        ON `TRANSACTION`(fd_id);   -- Get all transactions tied to one FD (fd_id is a foreign key, so InnoDB would auto-index it anyway, kept for clarity)
+-- Indexes made to make lookups faster, each one matches a common query pattern.-- The date column is second in each, so a query must compare txn_timestamp as a plain range-- (txn_timestamp >= start AND txn_timestamp < end) to use it. Wrapping it in DATE(), YEAR() or MONTH() hides the-- column from the index and MySQL reads every row instead (scripts/perf_check.sql measures it).
+CREATE INDEX idx_txn_account_date ON `TRANSACTION`(account_id, txn_timestamp);   -- An account's history, its daily withdrawals, customer activity
+CREATE INDEX idx_txn_agent_date   ON `TRANSACTION`(processed_by_agent_id, txn_timestamp);   -- An agent's transactions in a period (agent-wise report)
+CREATE INDEX idx_txn_type_date    
+ON `TRANSACTION`(transaction_type, txn_timestamp);   -- One type in a period (monthly interest report)
+CREATE INDEX idx_txn_fd_id        
+ON `TRANSACTION`(fd_id);   -- All transactions tied to one FD (also the foreign key index for fd_id)
 
 -- Holds bank wide settings as key value pairs so things like business hours and interest cycle
 -- lengths aren't hardcoded anywhere, they can just be looked up from here
