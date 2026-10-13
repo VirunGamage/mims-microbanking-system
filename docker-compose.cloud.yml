@@ -1,0 +1,37 @@
+# Extra settings for running MIMS on a cloud server (docs/DEPLOYMENT.md), used together with docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.cloud.yml up -d --build
+# What changes on the server:
+#   - "web" (Caddy) is the only way in from the internet: ports 80 and 443, with a free HTTPS certificate for
+#     PUBLIC_ADDRESS. The app and the database are no longer published on any port of the server.
+#   - Every page asks for APP_USERNAME and APP_PASSWORD.
+#   - The passwords have no defaults here: they must be in .env (copy cloud.env.example to .env).
+#   - MIMS_DAILY_INTEREST=on switches on the daily interest event when the database is first created.
+services:
+  db:
+    ports: !reset []
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env (copy cloud.env.example)}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in .env (copy cloud.env.example)}
+      MIMS_DAILY_INTEREST: ${MIMS_DAILY_INTEREST:-off}
+
+  app:
+    ports: !reset []
+    environment:
+      DB_PASSWORD: ${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in .env (copy cloud.env.example)}
+      APP_USERNAME: ${APP_USERNAME:?Set APP_USERNAME in .env (copy cloud.env.example)}
+      APP_PASSWORD: ${APP_PASSWORD:?Set APP_PASSWORD in .env (copy cloud.env.example)}
+
+  web:
+    image: caddy:2.11
+    restart: unless-stopped
+    command: caddy reverse-proxy --from ${PUBLIC_ADDRESS:?Set PUBLIC_ADDRESS in .env (copy cloud.env.example)} --to app:3001
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy-data:/data   # the HTTPS certificate, kept across restarts
+    depends_on:
+      - app
+
+volumes:
+  caddy-data:
