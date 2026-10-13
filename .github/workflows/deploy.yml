@@ -1,0 +1,35 @@
+# Continuous deployment: after the CI workflow passes on main, the cloud server pulls the new code and rebuilds
+# (docs/DEPLOYMENT.md, step 8). It does nothing until the DEPLOY_HOST, DEPLOY_USER and DEPLOY_SSH_KEY secrets are set
+# in the repository settings. It can also be started by hand from the Actions tab.
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Update the cloud server
+    # Only when CI passed (a run started by hand from the Actions tab always goes ahead)
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+    steps:
+      - name: No server set up yet
+        if: env.DEPLOY_HOST == ''
+        run: echo "The DEPLOY_HOST secret is not set (docs/DEPLOYMENT.md, step 8), so there is no server to update."
+
+      - name: Pull the new code on the server and rebuild
+        if: env.DEPLOY_HOST != ''
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=accept-new "$DEPLOY_USER@$DEPLOY_HOST" \
+            'cd ~/mims-microbanking-system && git pull --ff-only && docker compose -f docker-compose.yml -f docker-compose.cloud.yml up -d --build'

@@ -19,4 +19,11 @@ SET @app_host = '%';
 SOURCE scripts/create_app_user.sql;
 SQL
 
+# On a cloud server the daily interest event can run by itself (docker-compose.cloud.yml, MIMS_DAILY_INTEREST=on).
+# procedures/07_interest_posting.sql creates it switched off, and MySQL 8.0 runs its event scheduler by default.
+if [ "${MIMS_DAILY_INTEREST:-off}" = "on" ]; then
+  mysql -uroot -e "ALTER EVENT mims.ev_daily_interest ENABLE;"
+  echo "The daily interest event is switched on: interest is posted every day at 03:00."
+fi
+
 echo "MIMS database loaded: schema, procedures, reports, sample data and the mims_app user."

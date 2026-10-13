@@ -96,6 +96,16 @@ Without Docker, put the same lines in `backend/.env`.
 was for. The sample customers' addresses (such as `liam@mail.com`) are made up, but real people could own them.
 Receipts only go to customers' own addresses with `MAIL_SEND_TO_CUSTOMERS=true`, which is for real data only.
 
+## Cloud hosting
+
+MIMS runs on a cloud server, with HTTPS and a login: **https://btrust-mims.malaysiawest.cloudapp.azure.com** (ask the
+team for the username and password). It is the same Docker setup as on a laptop: `docker-compose.cloud.yml` puts a web
+server (Caddy) in front of the app, gets a free HTTPS certificate, keeps the app and the database off the internet, and
+asks every visitor for the login. The server is switched off at night and when nobody needs it, so start it in the
+Azure portal before using the address. The step-by-step guide (Azure for Students, free credit, no credit card) is
+`docs/DEPLOYMENT.md`. After that one-time setup, every change merged into `main` that passes CI is put on the server
+automatically (`.github/workflows/deploy.yml`).
+
 ## Set up (once per computer)
 
 Run everything from the repository folder (the one that contains this README).
@@ -192,7 +202,8 @@ A pull request is merged only when all three jobs show a green tick (the Checks 
 | Feature | Where |
 |---|---|
 | User experience | *User experience (UX)* |
-| CI/CD | *Continuous integration (CI)* |
+| CI/CD | *Continuous integration (CI)*, and automatic deployment to the server in *Cloud hosting* |
+| Cloud hosting | *Cloud hosting* |
 | Containerization | *Run with Docker* |
 | E-mail notifications | *Email notifications* |
 
