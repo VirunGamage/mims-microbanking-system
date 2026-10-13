@@ -22,6 +22,7 @@ WHERE x.m IS NOT NULL
   AND NOT EXISTS (SELECT 1 FROM TXN_REF_SEQ);
 
 DROP PROCEDURE IF EXISTS PROC_NEXT_TXN_REF;
+DROP PROCEDURE IF EXISTS PROC_CHECK_CHANNEL;
 DROP PROCEDURE IF EXISTS PROC_CHECK_BUSINESS_HOURS;
 DROP PROCEDURE IF EXISTS PROC_PROCESS_DEPOSIT;
 DROP PROCEDURE IF EXISTS PROC_PROCESS_WITHDRAWAL;
@@ -36,8 +37,8 @@ BEGIN
     SET p_reference_no = CONCAT('TXN', LPAD(LAST_INSERT_ID(), 7, '0'));   -- LAST_INSERT_ID is per connection, so two users never get the same number
 END$$
 
--- Rejects anything that comes in on a weekend or outside the business hours kept in SYSTEM_CONFIG.
--- Deposits, withdrawals and account opening all call this so the rule is written only once.
+-- Every BRANCH transaction (through PROC_CHECK_CHANNEL) and account opening call this, so the rule is written only once.
+-- Online banking (ONLINE, MOBILE, ATM) is open at any hour, so it does not come through here.
 CREATE PROCEDURE PROC_CHECK_BUSINESS_HOURS ()
 BEGIN
     DECLARE v_start TIME;
@@ -56,9 +57,38 @@ BEGIN
     END IF;
 END$$
 
+-- Checks who can move money on which channel, and when, so every procedure that moves money applies the same rule.
+-- A BRANCH transaction happens at the counter: only during business hours, and processed by an agent who must exist and
+-- be ACTIVE. An ONLINE, MOBILE or ATM transaction is made by the customer themselves: at any hour, and with no agent
+-- (chk_txn_channel_agent says the same; this gives a clear message before anything is changed). SYSTEM is not accepted:
+-- only the bank's own postings (interest, maturity) use it.
+-- trg_transaction_bi checks the agent again when the row is inserted, so a direct INSERT cannot skip the rule either.
+CREATE PROCEDURE PROC_CHECK_CHANNEL (
+IN p_channel VARCHAR(10),
+IN p_agent_id INT
+)
+BEGIN
+DECLARE v_agent_status VARCHAR(12) DEFAULT NULL;
+IF p_channel IS NULL OR p_channel NOT IN ('BRANCH', 'ONLINE', 'MOBILE', 'ATM') THEN
+SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Channel must be BRANCH, ONLINE, MOBILE or ATM';
+END IF;
+IF p_channel = 'BRANCH' THEN
+CALL PROC_CHECK_BUSINESS_HOURS();
+SELECT status INTO v_agent_status FROM AGENT WHERE agent_id = p_agent_id;
+IF v_agent_status IS NULL THEN -- No agent given, or no agent with this id
+SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Agent not found';
+END IF;
+IF v_agent_status <> 'ACTIVE' THEN
+SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Processing agent is not ACTIVE';
+END IF;
+ELSEIF p_agent_id IS NOT NULL THEN
+SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'An ONLINE, MOBILE or ATM transaction has no agent';
+END IF;
+END$$
+
 -- Adds money to a savings account and logs it as a DEPOSIT, all as one unit: if any check fails nothing is saved.
--- Any holder of a joint account can deposit, so there is no holder check here. p_agent_id is needed for the BRANCH channel
--- and must be NULL for every other channel (chk_txn_channel_agent), and the agent must be ACTIVE (trg_transaction_bi).
+-- Any holder of a joint account can deposit, so there is no holder check here. p_agent_id is the ACTIVE agent for the
+-- BRANCH channel and NULL for ONLINE, MOBILE and ATM, the customer's own channels (PROC_CHECK_CHANNEL).
 -- Gives back the new reference number and the new balance.
 CREATE PROCEDURE PROC_PROCESS_DEPOSIT (
     IN  p_account_id    INT,
@@ -88,7 +118,7 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Deposit amount must be greater than zero';
     END IF;
 
-    CALL PROC_CHECK_BUSINESS_HOURS();
+    CALL PROC_CHECK_CHANNEL(p_channel, p_agent_id); -- At a branch: business hours and an ACTIVE agent. Online: any hour, no agent
 
     -- Locks this account row until the transaction ends, so two deposits at the same time cannot overwrite each other's balance
     SELECT status INTO v_status
@@ -168,7 +198,7 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Withdrawal amount must be greater than zero';
     END IF;
 
-    CALL PROC_CHECK_BUSINESS_HOURS();
+    CALL PROC_CHECK_CHANNEL(p_channel, p_agent_id); -- At a branch: business hours and an ACTIVE agent. Online: any hour, no agent
 
     -- OF sa locks only the account row, not the plan row, so withdrawals on other accounts of the same plan are not held up
     SELECT sa.status, sa.balance, sp.minimum_balance

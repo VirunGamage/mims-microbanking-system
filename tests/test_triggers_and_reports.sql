@@ -110,11 +110,14 @@ CALL mims_test.expect_refusal(@suite, 'TR08', 'A transaction inserted directly f
      VALUES ('DEPOSIT', 100.00, CONCAT('TEST', UUID_SHORT()), 'BRANCH', @acc, @agent_on_leave)",
     'Processing agent is not ACTIVE');
 
--- TR09: only BRANCH transactions carry an agent (chk_txn_channel_agent), checked through the deposit procedure
+-- TR09: only BRANCH transactions carry an agent (chk_txn_channel_agent). The procedures refuse this earlier with a clearer
+-- message (PROC_CHECK_CHANNEL, tested in DW18), so the constraint itself is checked with direct INSERTs.
 CALL mims_test.expect_check_violation(@suite, 'TR09', 'An ONLINE deposit with an agent is refused',
-    "CALL mims.PROC_PROCESS_DEPOSIT(@acc, 100.00, 'ONLINE', @agent, @ref, @bal)", 'chk_txn_channel_agent');
+    "INSERT INTO mims.`TRANSACTION` (transaction_type, amount, reference_no, channel, account_id, processed_by_agent_id)
+     VALUES ('DEPOSIT', 100.00, CONCAT('TEST', UUID_SHORT()), 'ONLINE', @acc, @agent)", 'chk_txn_channel_agent');
 CALL mims_test.expect_check_violation(@suite, 'TR09', 'A BRANCH deposit without an agent is refused',
-    "CALL mims.PROC_PROCESS_DEPOSIT(@acc, 100.00, 'BRANCH', NULL, @ref, @bal)", 'chk_txn_channel_agent');
+    "INSERT INTO mims.`TRANSACTION` (transaction_type, amount, reference_no, channel, account_id, processed_by_agent_id)
+     VALUES ('DEPOSIT', 100.00, CONCAT('TEST', UUID_SHORT()), 'BRANCH', @acc, NULL)", 'chk_txn_channel_agent');
 CALL mims_test.expect_ok(@suite, 'TR09', 'An ONLINE deposit without an agent is accepted',
     "CALL mims.PROC_PROCESS_DEPOSIT(@acc, 100.00, 'ONLINE', NULL, @ref, @bal)");
 
@@ -168,5 +171,6 @@ CALL mims_test.check_that(@suite, 'TR14', 'A second PRIMARY holder inserted dire
     @state = '23000' AND @message LIKE '%uq_holder_one_primary%', CONCAT_WS(' ', 'got:', @state, @message));
 CALL mims_test.check_that(@suite, 'TR14', '... and the account still has its one holder',
     (SELECT COUNT(*) FROM ACCOUNT_HOLDER WHERE account_id = @acc) = 1, 'a holder row was added');
+    
 CALL mims_test.clock_reset();
 CALL mims_test.report(@suite);
