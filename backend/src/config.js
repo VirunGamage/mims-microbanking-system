@@ -1,5 +1,6 @@
 // Reads backend/.env and checks the settings the server needs before anything else starts. Owner: Virun.
 // Used by server.js and the database test. Only DB_HOST, DB_PORT and PORT have defaults; the rest must be in .env.
+// In Docker there is no .env file: docker-compose.yml passes the same settings as environment variables instead.
 // Reads the settings from backend/.env and stops at start-up, with a clear message, if a value is missing or still the example password.
 import { existsSync } from 'node:fs';
 import path from 'node:path';
@@ -30,6 +31,9 @@ export function readConfig(env) {
   }
   return {
     port: toPort(env.PORT, 3001, 'PORT'),
+    // The built frontend (frontend/dist) to serve from this same port, as the Docker image does. Not set on a
+    // developer's computer, where Vite serves the pages on port 5173.
+    staticDir: env.STATIC_DIR?.trim() || null,
     db: {
       host: env.DB_HOST?.trim() || '127.0.0.1',
       port: toPort(env.DB_PORT, 3306, 'DB_PORT'),
@@ -49,12 +53,15 @@ function toPort(value, fallback, name) {
   return port;
 }
 
-export function loadConfig() {
-  if (!existsSync(ENV_PATH)) {
+// The .env file is only required when the settings are not already in the environment (they are in Docker).
+// A value already in the environment wins over the same line in .env.
+export function loadConfig({ envPath = ENV_PATH, env = process.env } = {}) {
+  if (existsSync(envPath)) {
+    dotenv.config({ path: envPath, quiet: true, processEnv: env }); // quiet: newer dotenv versions print a banner on every start
+  } else if (REQUIRED.some((key) => !env[key])) {
     throw new ConfigError(
       'backend/.env does not exist yet. Copy backend/.env.example to backend/.env, then put in your mims_app password.',
     );
   }
-  dotenv.config({ path: ENV_PATH, quiet: true }); // quiet: newer dotenv versions print a banner on every start
-  return readConfig(process.env);
+  return readConfig(env);
 }

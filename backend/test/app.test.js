@@ -54,3 +54,28 @@ test('an unexpected server error reaches the browser as a short message, never t
   }
   assert.equal(logged.length, 1);
 });
+
+test('with a staticDir (the Docker image) the pages and the API share one port', async () => {
+  const { mkdtempSync, writeFileSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const dir = mkdtempSync(join(tmpdir(), 'mims-pages-'));
+  writeFileSync(join(dir, 'index.html'), '<!doctype html><title>MIMS</title>');
+  writeFileSync(join(dir, 'app.js'), 'console.log(1)');
+
+  const app = await createApp({ log: () => {}, staticDir: dir });
+  const pages = app.listen(0);
+  await new Promise((resolve) => pages.once('listening', resolve));
+  const url = `http://127.0.0.1:${pages.address().port}`;
+  try {
+    const home = await fetch(`${url}/`);
+    assert.match(await home.text(), /<title>MIMS<\/title>/, 'the root address is the app page');
+    assert.equal(await (await fetch(`${url}/app.js`)).text(), 'console.log(1)', 'built files are served as they are');
+    assert.match(await (await fetch(`${url}/customers`)).text(), /<title>MIMS<\/title>/, 'a page address gets index.html');
+    const api = await fetch(`${url}/api/no-such-thing`);
+    assert.equal(api.status, 404, 'an unknown API address is still a JSON 404, not the page');
+    assert.deepEqual(await api.json(), { error: 'There is no API endpoint GET /api/no-such-thing' });
+  } finally {
+    pages.close();
+  }
+});
