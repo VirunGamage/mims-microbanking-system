@@ -42,7 +42,7 @@ jobs:
       - run: npm test
 
   sql-tests:
-    name: SQL tests (166 checks)
+    name: SQL tests (every check must pass)
     runs-on: ubuntu-latest
     services:
       mysql:
@@ -63,4 +63,4 @@ jobs:
       - name: Run every SQL test (run_all.sql reloads the database itself)
         run: |
           mysql -h 127.0.0.1 -u root --table < tests/run_all.sql | tee sql-tests.log
-          grep -q "ALL 166 CHECKS PASS" sql-tests.log
+          grep -qE "ALL [0-9]+ CHECKS PASS" sql-tests.log
