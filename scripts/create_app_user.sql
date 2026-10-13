@@ -21,7 +21,18 @@ SET @create_sql = IF(@password_ok, CONCAT('CREATE USER IF NOT EXISTS ''mims_app'
 PREPARE stmt FROM @create_sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 SET @create_sql = IF(@password_ok, CONCAT('ALTER USER ''mims_app''@''127.0.0.1'' IDENTIFIED BY ', QUOTE(@app_password)), NULL);
 PREPARE stmt FROM @create_sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-SET @create_sql = NULL, @password_ok = NULL;
+-- Optional third host. Only when the backend runs on a different machine or container from MySQL, as in Docker
+-- (docker/db-init.sh sets @app_host = '%'). On a normal computer @app_host is not set and nothing happens here.
+SET @extra_host_ok = @password_ok AND COALESCE(@app_host, '') <> '';
+SET @create_sql = IF(@extra_host_ok, CONCAT('CREATE USER IF NOT EXISTS ''mims_app''@', QUOTE(@app_host), ' IDENTIFIED BY ', QUOTE(@app_password)), 'DO 0');
+PREPARE stmt FROM @create_sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @create_sql = IF(@extra_host_ok, CONCAT('ALTER USER ''mims_app''@', QUOTE(@app_host), ' IDENTIFIED BY ', QUOTE(@app_password)), 'DO 0');
+PREPARE stmt FROM @create_sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @create_sql = IF(@extra_host_ok, CONCAT('GRANT SELECT, EXECUTE ON mims.* TO ''mims_app''@', QUOTE(@app_host)), 'DO 0');
+PREPARE stmt FROM @create_sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @create_sql = IF(@extra_host_ok, CONCAT('GRANT INSERT ON mims.CUSTOMER TO ''mims_app''@', QUOTE(@app_host)), 'DO 0');
+PREPARE stmt FROM @create_sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+SET @create_sql = NULL, @password_ok = NULL, @extra_host_ok = NULL;
 
 -- SELECT and EXECUTE on the whole database, INSERT only on CUSTOMER (registration). No UPDATE or DELETE anywhere,
 -- so balances can only change through the stored procedures.

@@ -28,11 +28,12 @@ async function main() {
     stop(startupProblem(err, config));
   }
 
-  const app = await createApp();
+  const app = await createApp({ staticDir: config.staticDir });
   // Express 5 calls this function with an error too (for example when the port is taken), so check for it first.
   const server = app.listen(config.port, (err) => {
     if (err) stop(startupProblem(err, config));
     console.log(`MIMS API listening on http://localhost:${config.port}  (check http://localhost:${config.port}/api/health)`);
+    if (config.staticDir) console.log(`Serving the app pages from ${config.staticDir}`);
   });
 
   const shutDown = async () => {

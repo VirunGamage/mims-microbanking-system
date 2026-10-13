@@ -3,7 +3,7 @@
 // Tests each input check (text, ids, money, dates, allowed values) with good and bad values, including that the error names the right field.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ConfigError, readConfig } from '../src/config.js';
+import { ConfigError, loadConfig, readConfig } from '../src/config.js';
 import { date, id, money, oneOf, optionalId, optionalText, requiredText, ValidationError } from '../src/validate.js';
 
 test('money is normalised to two decimals and stays a string', () => {
@@ -57,6 +57,16 @@ test('config needs user, password and database, and rejects the example password
   const config = readConfig({ DB_USER: 'mims_app', DB_PASSWORD: 'secret', DB_NAME: 'mims' });
   assert.deepEqual(config, {
     port: 3001,
+    staticDir: null,
     db: { host: '127.0.0.1', port: 3306, user: 'mims_app', password: 'secret', database: 'mims' },
   });
+});
+
+test('without backend/.env the settings can come from the environment (Docker), but not from nowhere', () => {
+  const noFile = '/no/such/folder/.env';
+  const env = { DB_HOST: 'db', DB_USER: 'mims_app', DB_PASSWORD: 'secret', DB_NAME: 'mims', STATIC_DIR: '/app/public' };
+  const config = loadConfig({ envPath: noFile, env });
+  assert.equal(config.db.host, 'db');
+  assert.equal(config.staticDir, '/app/public');
+  assert.throws(() => loadConfig({ envPath: noFile, env: {} }), /backend\/\.env does not exist yet/);
 });

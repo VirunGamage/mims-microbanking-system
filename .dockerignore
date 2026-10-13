@@ -1,0 +1,9 @@
+# Kept out of the Docker images: installed packages and build output (the images install and build their own),
+# local settings with passwords, and Git's history.
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+!**/.env.example
+.git
+*.log

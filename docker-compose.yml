@@ -1,0 +1,49 @@
+# Runs MIMS in two containers: "db" (MySQL with the MIMS database) and "app" (the Node.js API, which also serves the
+# React pages). Nothing else needs installing except Docker.
+#   Start:            docker compose up --build        then open http://localhost:8080
+#   Stop:             Ctrl + C   (or: docker compose down)
+#   SQL tests:        docker compose exec db mims-tests
+#   Fresh sample data: docker compose down -v   (deletes the database volume), then start again
+# The passwords below are local-only defaults. To choose your own, copy .env.example to .env before the first start.
+name: mims
+
+services:
+  db:
+    build:
+      context: .
+      dockerfile: docker/db.Dockerfile
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-mims-root-local}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-mims-app-local}
+    volumes:
+      - db-data:/var/lib/mysql   # the database survives restarts; "docker compose down -v" deletes it
+    ports:
+      - "127.0.0.1:3307:3306"    # for MySQL Workbench on this computer; 3307 so it never clashes with a local MySQL
+    healthcheck:
+      # Healthy once mims_app can read the loaded data over the network, i.e. after db-init.sh has finished
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$APP_DB_PASSWORD\" mysql -h 127.0.0.1 -u mims_app -e 'SELECT 1 FROM mims.CUSTOMER LIMIT 1'"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
+
+  app:
+    build: .
+    # The app stops if MySQL is not answering yet (after "docker compose restart" or a reboot both start together),
+    # so Docker starts it again until the database is ready
+    restart: unless-stopped
+    environment:
+      DB_HOST: db                # the database container's name on the Docker network
+      DB_PORT: 3306
+      DB_USER: mims_app
+      DB_PASSWORD: ${APP_DB_PASSWORD:-mims-app-local}
+      DB_NAME: mims
+    ports:
+      - "127.0.0.1:8080:3001"    # the app at http://localhost:8080
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:

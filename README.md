@@ -17,6 +17,7 @@ Group 27 — Database Systems project.
 | `backend/` | Node.js + Express API on port 3001: it only calls stored procedures and runs read-only queries |
 | `frontend/` | React + Vite web pages on port 5173 |
 | `docs/` | QA user guide, demo script, SRS revision notes, and a walkthrough of each person's files |
+| `Dockerfile`, `docker-compose.yml`, `docker/` | The two container images (the app, and MySQL with the MIMS database) and the file that starts both; see *Run with Docker* |
 
 ## What you need
 
@@ -24,7 +25,37 @@ Group 27 — Database Systems project.
 - **Node.js 24 LTS** (tested with 24.21.0; 22.12 or newer also works — tested with 22.22.0).
 - **Git**.
 
+Or only **Docker Desktop**, to run everything in containers (next section) instead of installing MySQL and Node.js.
+
 On Windows, type the commands below in **Command Prompt**, not PowerShell (PowerShell does not support `<`).
+
+## Run with Docker (one command)
+
+Docker runs MIMS in two containers: `db` (MySQL 8.0.46 with the schema, procedures, reports and sample data built in)
+and `app` (the Node.js API, which also serves the React pages). Nothing else needs installing.
+
+1. Install and start **Docker Desktop** (https://www.docker.com/products/docker-desktop/).
+2. In the repository folder, run:
+
+```
+docker compose up --build
+```
+
+The first start takes a few minutes: Docker downloads MySQL and Node.js, builds the two images and loads the sample
+data. When the log shows `MIMS API listening`, open **http://localhost:8080**.
+
+| To | Run |
+|---|---|
+| Stop | `Ctrl + C` in that window, or `docker compose down` |
+| Start again (keeps everything entered through the app) | `docker compose up` |
+| Run the SQL tests and the 36 data checks inside the container | `docker compose exec db mims-tests` (reloads the sample data) |
+| Start again with fresh sample data | `docker compose down -v`, then `docker compose up` |
+
+- The database clock is set to Sri Lanka time in the container, so business hours work as described below.
+- MySQL Workbench can connect to the container's database at `127.0.0.1`, port **3307**, user `root`, password
+  `mims-root-local`.
+- Those passwords are local-only defaults. To choose your own, copy `.env.example` to `.env` before the first start
+  (or run `docker compose down -v` first, because the passwords are set when the database is created).
 
 ## Set up (once per computer)
 
