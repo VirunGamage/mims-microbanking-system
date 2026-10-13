@@ -8,7 +8,6 @@ SET @suite = 'deposit_withdraw';
 CALL mims_test.start_suite(@suite);
 DROP TRIGGER IF EXISTS test_fault_after_balance_update;
 
--- Online channels are allowed outside the branch day; branch operations still follow business hours.
 SET @hours        = 'Transactions are only accepted Mon-Fri during business hours';
 SET @deposit_zero = 'Deposit amount must be greater than zero';
 SET @withdraw_zero = 'Withdrawal amount must be greater than zero';
@@ -91,7 +90,7 @@ CALL mims_test.expect_refusal(@suite, 'DW05', 'A deposit into a FROZEN account i
 CALL mims_test.expect_refusal(@suite, 'DW05', 'A deposit into an account that does not exist is refused',
     "CALL mims.PROC_PROCESS_DEPOSIT(999999, 100.00, 'BRANCH', @agent, @ref, @bal)", 'Account not found');
 
--- DW06: the agent must be ACTIVE (checked by trg_transaction_bi when the row is inserted)
+-- DW06: the agent must be ACTIVE (PROC_CHECK_CHANNEL checks it before anything changes; trg_transaction_bi again at the insert)
 SET @before = (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @acc),
     @rows_before = (SELECT COUNT(*) FROM `TRANSACTION` WHERE account_id = @acc);
 CALL mims_test.expect_refusal(@suite, 'DW06', 'A deposit by an agent who is ON_LEAVE is refused',
@@ -213,22 +212,44 @@ CALL mims_test.check_that(@suite, 'DW16', 'Every test account''s balance equals 
      WHERE account_id IN (@acc, @small, @big, @joint, @frozen) AND balance = mims_test.ledger_balance(account_id)) = 5,
     'at least one balance differs from its transactions');
 
--- DW17: online channels work outside business hours, and branch transactions still follow the timetable
-CALL mims_test.clock_at('2026-10-10 23:30:00');
-CALL mims_test.expect_ok(@suite, 'DW17', 'An ONLINE deposit on a weekend is accepted at 23:30',
-    "CALL mims.PROC_PROCESS_DEPOSIT(@acc, 50.00, 'ONLINE', NULL, @ref, @bal)");
-CALL mims_test.clock_at('2026-10-05 23:30:00');
-CALL mims_test.expect_ok(@suite, 'DW17', 'A MOBILE withdrawal at 23:30 is accepted outside business hours',
-    "CALL mims.PROC_PROCESS_WITHDRAWAL(@acc, @holder, 10.00, 'MOBILE', NULL, @ref, @bal)");
+-- DW17: the customer's own channels. An ONLINE, MOBILE or ATM deposit or withdrawal has no agent and is accepted at any
+-- hour; the other rules stay the same.
+SET @before = (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @acc), @ref = NULL, @bal = NULL;
+CALL mims_test.try_sql("CALL mims.PROC_PROCESS_DEPOSIT(@acc, 300.00, 'ONLINE', NULL, @ref, @bal)", @state, @message);
+CALL mims_test.check_that(@suite, 'DW17', 'An ONLINE deposit with no agent is accepted and logged as ONLINE',
+    @state = '00000' AND @bal = @before + 300.00
+    AND (SELECT COUNT(*) FROM `TRANSACTION`
+         WHERE reference_no = @ref AND account_id = @acc AND transaction_type = 'DEPOSIT' AND amount = 300.00
+           AND channel = 'ONLINE' AND processed_by_agent_id IS NULL) = 1,
+    CONCAT_WS(' ', @state, @message, 'new balance', @bal));
+SET @ref = NULL;
+CALL mims_test.try_sql("CALL mims.PROC_PROCESS_WITHDRAWAL(@acc, @holder, 200.00, 'MOBILE', NULL, @ref, @bal)", @state, @message);
+CALL mims_test.check_that(@suite, 'DW17', 'A MOBILE withdrawal by a holder is accepted and logged as MOBILE',
+    @state = '00000' AND @bal = @before + 100.00
+    AND (SELECT COUNT(*) FROM `TRANSACTION`
+         WHERE reference_no = @ref AND account_id = @acc AND transaction_type = 'WITHDRAWAL' AND amount = 200.00
+           AND channel = 'MOBILE' AND processed_by_agent_id IS NULL) = 1,
+    CONCAT_WS(' ', @state, @message, 'new balance', @bal));
+CALL mims_test.expect_refusal(@suite, 'DW17', 'An ONLINE withdrawal by someone who is not a holder is refused',
+    "CALL mims.PROC_PROCESS_WITHDRAWAL(@acc, @stranger, 100.00, 'ONLINE', NULL, @ref, @bal)",
+    'Customer is not a holder of this account');
+CALL mims_test.clock_at('2026-10-10 10:00:00');
+CALL mims_test.expect_ok(@suite, 'DW17', 'An ONLINE deposit on a Saturday is accepted (online banking has no opening hours)',
+    "CALL mims.PROC_PROCESS_DEPOSIT(@acc, 100.00, 'ONLINE', NULL, @ref, @bal)");
+CALL mims_test.clock_at('2026-10-06 23:30:00');
+CALL mims_test.expect_ok(@suite, 'DW17', 'A MOBILE withdrawal at 23:30 on a weekday is accepted',
+    "CALL mims.PROC_PROCESS_WITHDRAWAL(@acc, @holder, 100.00, 'MOBILE', NULL, @ref, @bal)");
 CALL mims_test.clock_at('2026-10-05 10:00:00');
 
--- DW18: bad channels and channel/agent mismatches are refused before the balance changes
-CALL mims_test.expect_refusal(@suite, 'DW18', 'A transaction with an invalid channel is refused',
-    "CALL mims.PROC_PROCESS_DEPOSIT(@acc, 100.00, 'INVALID', NULL, @ref, @bal)", @bad_channel);
-CALL mims_test.expect_refusal(@suite, 'DW18', 'An ONLINE transaction with an agent is refused',
+-- DW18: who can use which channel (PROC_CHECK_CHANNEL)
+CALL mims_test.expect_refusal(@suite, 'DW18', 'An ONLINE deposit that names an agent is refused',
     "CALL mims.PROC_PROCESS_DEPOSIT(@acc, 100.00, 'ONLINE', @agent, @ref, @bal)", @no_agent);
-CALL mims_test.expect_refusal(@suite, 'DW18', 'A BRANCH transaction without an agent is refused',
+CALL mims_test.expect_refusal(@suite, 'DW18', 'A BRANCH deposit with no agent is refused',
     "CALL mims.PROC_PROCESS_DEPOSIT(@acc, 100.00, 'BRANCH', NULL, @ref, @bal)", 'Agent not found');
+CALL mims_test.expect_refusal(@suite, 'DW18', 'A deposit on the SYSTEM channel (kept for interest) is refused',
+    "CALL mims.PROC_PROCESS_DEPOSIT(@acc, 100.00, 'SYSTEM', NULL, @ref, @bal)", @bad_channel);
+CALL mims_test.expect_refusal(@suite, 'DW18', 'A withdrawal on a channel that does not exist is refused',
+    "CALL mims.PROC_PROCESS_WITHDRAWAL(@acc, @holder, 100.00, 'POST', NULL, @ref, @bal)", @bad_channel);
 
 CALL mims_test.clock_reset();
 CALL mims_test.report(@suite);
