@@ -4,6 +4,7 @@
 #   Stop:             Ctrl + C   (or: docker compose down)
 #   SQL tests:        docker compose exec db mims-tests
 #   Fresh sample data: docker compose down -v   (deletes the database volume), then start again
+#   Test e-mails:     docker compose --profile mail up --build   then open http://localhost:8025 (see README)
 # The passwords below are local-only defaults. To choose your own, copy .env.example to .env before the first start.
 name: mims
 
@@ -39,11 +40,29 @@ services:
       DB_USER: mims_app
       DB_PASSWORD: ${APP_DB_PASSWORD:-mims-app-local}
       DB_NAME: mims
+      # E-mail notifications (README, "Email notifications"). Empty SMTP_HOST = off.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_DEMO_INBOX: ${MAIL_DEMO_INBOX:-}
+      MAIL_SEND_TO_CUSTOMERS: ${MAIL_SEND_TO_CUSTOMERS:-}
+      MAIL_REVIEW_TO: ${MAIL_REVIEW_TO:-}
     ports:
       - "127.0.0.1:8080:3001"    # the app at http://localhost:8080
     depends_on:
       db:
         condition: service_healthy
+
+  # A pretend mail server with an inbox in the browser, for trying the e-mails without a real e-mail account.
+  # Only started with "docker compose --profile mail up"; then set SMTP_HOST=mail and SMTP_PORT=1025 in .env.
+  mail:
+    image: axllent/mailpit:v1.31.0
+    profiles: ["mail"]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8025:8025"    # the test inbox at http://localhost:8025
 
 volumes:
   db-data:

@@ -5,6 +5,7 @@
 import { Router } from 'express';
 import { callProc, query } from '../db.js';
 import { HttpError, ruleError } from '../errors.js';
+import { notifications, sendInBackground } from '../notify.js';
 import { noteCall, noteResult, sendData } from '../respond.js';
 import { likePattern, searchText } from '../search.js';
 import { ValidationError, id, money, optionalId } from '../validate.js';
@@ -121,6 +122,10 @@ router.post('/', async (req, res) => {
   // The procedure has no OUT value for the large-deposit flag, so it is read back from the opening deposit's row.
   const [opening] = await query('SELECT review_flag AS reviewFlag FROM `TRANSACTION` WHERE reference_no = ?', [out.reference_no]);
   const account = await findAccount(out.account_id);
+  // Welcome e-mail to the holders, and an alert to the bank if the opening deposit was flagged (in the background)
+  const sent = { accountId: out.account_id, planName: account.planName, amount: openingAmount, referenceNo: out.reference_no, agentId };
+  sendInBackground(() => notifications().accountOpened(sent));
+  if (opening?.reviewFlag === 1) sendInBackground(() => notifications().reviewAlert(sent));
   sendData(req, res, { ...account, referenceNo: out.reference_no, reviewFlagged: opening?.reviewFlag === 1 }, 201);
 });
 

@@ -7,6 +7,7 @@
 import { Router } from 'express';
 import { callProc, query } from '../db.js';
 import { HttpError, ruleError } from '../errors.js';
+import { notifications, sendInBackground } from '../notify.js';
 import { noteCall, noteResult, sendData } from '../respond.js';
 import { ValidationError, id, money } from '../validate.js';
 
@@ -48,6 +49,10 @@ router.post('/:id/deposit', async (req, res) => {
   noteResult(res, out);
   // The procedure has no OUT value for the large-deposit flag, so it is read back from the new row (read-only).
   const row = await readBack(out.reference_no);
+  // E-mail receipt to the holders, and an alert to the bank for a flagged deposit (in the background, after the commit)
+  const sent = { accountId, amount, referenceNo: out.reference_no, newBalance: out.new_balance, at: row.at, agentId };
+  sendInBackground(() => notifications().deposit(sent));
+  if (row.reviewFlag === 1) sendInBackground(() => notifications().reviewAlert(sent));
   sendData(req, res, {
     accountId,
     type: 'DEPOSIT',
@@ -76,6 +81,9 @@ router.post('/:id/withdraw', async (req, res) => {
   }
   noteResult(res, out);
   const row = await readBack(out.reference_no);
+  sendInBackground(() => notifications().withdrawal({
+    accountId, amount, referenceNo: out.reference_no, newBalance: out.new_balance, at: row.at, agentId,
+  }));
   sendData(req, res, {
     accountId,
     type: 'WITHDRAWAL',

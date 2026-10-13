@@ -6,6 +6,7 @@
 import { Router } from 'express';
 import { callProc, query } from '../db.js';
 import { HttpError, ruleError } from '../errors.js';
+import { notifications, sendInBackground } from '../notify.js';
 import { noteCall, noteResult, sendData } from '../respond.js';
 import { id, money, oneOf, optionalId } from '../validate.js';
 
@@ -100,6 +101,10 @@ router.post('/', async (req, res) => {
   }
   noteResult(res, out);
   const fd = await findFd(out.fd_id);
+  sendInBackground(() => notifications().fdOpened({
+    accountId, fdId: fd.fdId, amount, termName: fd.termName, interestRate: fd.interestRate, maturityDate: fd.maturityDate,
+    nextPayoutDate: fd.nextPayoutDate, referenceNo: out.reference_no, newBalance: out.new_balance, agentId,
+  }));
   sendData(req, res, { ...fd, referenceNo: out.reference_no, newBalance: out.new_balance }, 201);
 });
 
@@ -127,6 +132,9 @@ router.post('/:id/close', async (req, res) => {
   );
   const [account] = await query('SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = ?', [fd.accountId]);
   noteResult(res, { referenceNo: closure?.referenceNo ?? null });
+  sendInBackground(() => notifications().fdClosed({
+    accountId: fd.accountId, fdId, amount: fd.amount, referenceNo: closure?.referenceNo, newBalance: account?.balance, agentId,
+  }));
   sendData(req, res, { ...fd, closure: closure ?? null, newBalance: account?.balance ?? null });
 });
 
