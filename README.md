@@ -11,14 +11,15 @@ Group 27 — Database Systems project.
 | `sql/` | `mims_schema.sql`: the tables, keys, checks and the first triggers |
 | `sample-data/` | Sample branches, agents, customers, accounts, fixed deposits, 230 transactions and the demo sign-ins |
 | `procedures/` | Stored procedures, functions, triggers, the daily interest event, the Data Checks views and transfers (`09_transfer.sql`) |
+| `procedures/` | Stored procedures, functions, triggers, the daily interest event, the Data Checks views and transfers (`09_transfer.sql`) |
 | `reports/` | The five management reports |
 | `scripts/` | `load_all.sql` (rebuild the database), `create_app_user.sql` (the app's limited MySQL user), `smoke-test.mjs` (environment check) |
 | `tests/` | `validate_sample_data.sql` (36 data checks), `run_all.sql` with the five SQL test files and their helpers |
 | `backend/` | Node.js + Express API on port 3001: it only calls stored procedures and runs read-only queries |
 | `frontend/` | React + Vite web pages on port 5173 |
-| `docs/` | QA user guide, demo script, SRS revision notes, and a walkthrough of each person's files |
-| `.github/workflows/` | `ci.yml`: the automatic checks that run on every push and pull request (see *Continuous integration*) |
-| `Dockerfile`, `docker-compose.yml`, `docker/` | The two container images (the app, and MySQL with the MIMS database) and the file that starts both; see *Run with Docker* |
+| `docs/` | QA user guide, demo script, SRS revision notes, cloud deployment guide (`DEPLOYMENT.md`), and a walkthrough of each person's files |
+| `.github/workflows/` | `ci.yml`: the automatic checks that run on every push and pull request (see *Continuous integration*); `deploy.yml`: updates the cloud server after CI passes on `main` (see *Cloud hosting*) |
+| `Dockerfile`, `docker-compose.yml`, `docker-compose.cloud.yml`, `docker/` | The two container images (the app, and MySQL with the MIMS database) and the file that starts both; see *Run with Docker*. `docker-compose.cloud.yml` adds the HTTPS web server for the cloud |
 
 ## What you need
 
@@ -51,6 +52,9 @@ data. When the log shows `MIMS API listening`, open **http://localhost:8080**.
 | Start again (keeps everything entered through the app) | `docker compose up` |
 | Run the SQL tests and the 36 data checks inside the container | `docker compose exec db mims-tests` (reloads the sample data) |
 | Start again with fresh sample data | `docker compose down -v`, then `docker compose up` |
+
+**Updating from a version before sign-in was added?** The old database has no `APP_LOGIN` table, so every sign-in
+fails. Run `docker compose down -v`, then `docker compose up --build`, once.
 
 - The database clock is set to Sri Lanka time in the container, so business hours work as described below.
 - MySQL Workbench can connect to the container's database at `127.0.0.1`, port **3307**, user `root`, password
@@ -98,10 +102,10 @@ Receipts only go to customers' own addresses with `MAIL_SEND_TO_CUSTOMERS=true`,
 
 ## Cloud hosting
 
-MIMS runs on a cloud server, with HTTPS and a login: **https://btrust-mims.malaysiawest.cloudapp.azure.com** (ask the
-team for the username and password). It is the same Docker setup as on a laptop: `docker-compose.cloud.yml` puts a web
-server (Caddy) in front of the app, gets a free HTTPS certificate, keeps the app and the database off the internet, and
-asks every visitor for the login. The server is switched off at night and when nobody needs it, so start it in the
+MIMS runs on a cloud server with HTTPS: **https://btrust-mims.malaysiawest.cloudapp.azure.com**. It opens on the
+start page; sign in with the demo accounts below (*Sign in and online banking*). It is the same Docker setup as on a
+laptop: `docker-compose.cloud.yml` puts a web server (Caddy) in front of the app, gets a free HTTPS certificate, and
+keeps the app and the database off the internet. The server is switched off at night and when nobody needs it, so start it in the
 Azure portal before using the address. The step-by-step guide (Azure for Students, free credit, no credit card) is
 `docs/DEPLOYMENT.md`. After that one-time setup, every change merged into `main` that passes CI is put on the server
 automatically (`.github/workflows/deploy.yml`).
@@ -201,6 +205,17 @@ at the same moment cannot deadlock.
 
 **Business hours are a rule, not a bug:** at a branch, deposits, withdrawals, new accounts, new fixed deposits and early fixed-deposit closures are only accepted Monday to Friday, 09:00–16:00 (database time). Online banking (customers) is open at any hour.
 
+## Security and possible improvements
+
+- Every value from a user is sent to MySQL as a query parameter (`?`), never pasted into the SQL text, so it cannot
+  change the command (SQL injection). Procedure names are checked against a safe pattern (`backend/src/db.js`).
+- The app's MySQL user `mims_app` can only read, call procedures and add customers; it cannot change a balance or a
+  transaction, even if the app had a bug.
+- Passwords are stored only as salted scrypt hashes, and a wrong password and an unknown username get the same answer.
+
+Possible improvements: limit repeated sign-in attempts (for example 5 failures per 15 minutes), let customers change
+their password, and close a savings account from the app.
+
 ## Tests
 
 | What | Command | Needs |
@@ -250,11 +265,11 @@ A pull request is merged only when all three jobs show a green tick (the Checks 
 
 | Person | Owns |
 |---|---|
-| Virun Gamage | Project lead: planning, design documents, PR reviews and merges. Schema (tables, keys, constraints, customer and agent triggers); account-opening and FD-opening procedures |
-| Shanujah Sivakumar | Planning, PR reviews and merges. FD closure, maturity and interest-posting procedures with the daily event; one-active-FD and balance-guard triggers; payout-due check on FD close |
-| Rookshi Suthakaran | Management reports, including separate savings and FD interest; registering-agent check in the customer trigger; transaction-immutability triggers; sample-data validator |
-| Sureshkumar Archchuthan | Transaction and fixed-deposit sample data; interest-posting, trigger and report SQL tests |
-| Sameera Senanayaka | Branch, agent, customer and account sample data; deposit and withdrawal procedures |
+| Virun Gamage | Project lead: planning, design documents, PR reviews and merges. Schema (tables, keys, constraints, customer and agent triggers); account-opening and FD-opening procedures; online banking design |
+| Shanujah Sivakumar | Planning, PR reviews and merges. FD closure, maturity and interest-posting procedures with the daily event; one-active-FD and balance-guard triggers; payout-due check on FD close; opening and closing FDs online (channel parameter) |
+| Rookshi Suthakaran | Management reports, including separate savings and FD interest; registering-agent check in the customer trigger; transaction-immutability triggers; sample-data validator; Data checks views (`08_gap_queries.sql`); `APP_LOGIN` table and demo sign-ins |
+| Sureshkumar Archchuthan | Transaction and fixed-deposit sample data; interest-posting, trigger and report SQL tests; transfers (`PROC_TRANSFER`, `09_transfer.sql`); GitHub Actions CI |
+| Sameera Senanayaka | Branch, agent, customer and account sample data; deposit and withdrawal procedures; online channel rule (`PROC_CHECK_CHANNEL`) |
 
 ## AI contributions
 
@@ -262,7 +277,7 @@ An AI coding assistant drafted the web app (the Node.js/Express backend and the 
 
 | Person | Reviewed, tested and committed |
 |---|---|
-| Virun Gamage | Repository setup and README; backend core and tests; customer and account API; frontend setup; smoke test; review fixes |
+| Virun Gamage | Repository setup and README; backend core and tests; customer and account API; frontend setup; smoke test; review fixes; Docker, e-mail notifications, cloud hosting and deploy workflow; sign-in, online banking pages and My reports |
 | Shanujah Sivakumar | Frontend core (design, shared components, page frame, Home); fixed deposits API and screens; deposit/withdrawal SQL tests |
 | Rookshi Suthakaran | Reports and Data checks (API, screens, views); charts and CSV export; load/user scripts; account-opening tests and test runner |
 | Sureshkumar Archchuthan | Transactions API, screen and passbook; report cross-check test |
