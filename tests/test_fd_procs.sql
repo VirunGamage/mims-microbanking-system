@@ -1,4 +1,4 @@
--- Tests for opening and closing fixed deposits (procedures/06_open_fixed_deposit.sql and 03_fixed_deposit.sql). Owner: Sameera.
+-- Tests for opening and closing fixed deposits (procedures/06_open_fixed_deposit.sql and 03_fixed_deposit.sql), at a branch and online. Owner: Sameera.
 -- Each test pins this session's clock to a fixed moment, so business hours and FD dates are tested the same way on any day.
 -- Run through tests/run_all.sql, or alone after tests/_helpers.sql:  mysql -u root -p --table < tests/test_fd_procs.sql
 -- SQL test suite for validating fixed deposit opening, closing procedures, rates, and business constraints in the database.
@@ -7,12 +7,14 @@ USE mims;
 SET @suite = 'fixed_deposits';
 CALL mims_test.start_suite(@suite);
 
+DROP TRIGGER IF EXISTS test_fault_after_balance_update;
+
 SET @hours       = 'Transactions are only accepted Mon-Fri during business hours';
 SET @one_active  = 'This Savings Account already has an active Fixed Deposit.';
 SET @below_min   = 'Fixed Deposit would take the balance below the plan minimum';
 SET @six_months  = (SELECT fd_plan_id FROM FD_PLAN WHERE term_name = '6_MONTH');   -- 180 days at 13.00%
 
--- Test data, made on Monday 5 October 2026 at 10:00: two agents, three customers, five accounts.
+
 CALL mims_test.clock_at('2026-10-05 10:00:00');
 
 INSERT INTO AGENT (first_name, last_name, status, branch_id) VALUES ('Test', 'Agent FD', 'ACTIVE', 3);
@@ -160,21 +162,48 @@ CALL mims_test.expect_refusal(@suite, 'FD13', 'An FD that is already CLOSED cann
 CALL mims_test.expect_refusal(@suite, 'FD13', 'An FD that does not exist cannot be closed',
     "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(999999, @primary, 'BRANCH', @agent)", 'Fixed Deposit not found');
 
--- FD14: all or nothing. PROC_CLOSE_FIXED_DEPOSIT updates the FD before it inserts the FD_CLOSURE row; an ON_LEAVE agent is refused at that insert (trg_transaction_bi), so the FD update must be undone.
+-- FD14: all or nothing. PROC_CLOSE_FIXED_DEPOSIT updates the FD and inserts the FD_CLOSURE row before it pays the principal
+-- back. A test trigger makes that last step (the balance UPDATE) fail, so the FD update and the row must be undone too.
 -- The payouts due by today are posted first, so these closes test only their own rule.
 CALL PROC_POST_FD_INTEREST(@fd_min, '2026-11-20', @n);
 CALL PROC_POST_FD_INTEREST(@fd_joint, '2026-11-20', @n);
-SET @before = (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @min_acc);
+
 CALL mims_test.expect_refusal(@suite, 'FD14', 'Closing with an agent who is ON_LEAVE is refused',
-    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd_min, @primary, 'BRANCH', @agent_on_leave)", 'Processing agent is not ACTIVE');
-CALL mims_test.check_that(@suite, 'FD14', '... and the FD and the balance are left exactly as they were',
-    @allow_balance_update = 0
+    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd_min, @primary, 'BRANCH', @agent_on_leave)",
+    'Processing agent is not ACTIVE');
+
+CREATE TRIGGER test_fault_after_balance_update AFTER UPDATE ON SAVINGS_ACCOUNT FOR EACH ROW
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Test fault after the balance update';
+
+SET @before = (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @min_acc);
+
+CALL mims_test.try_sql(
+    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd_min, @primary, 'BRANCH', @agent)",
+    @state,
+    @message
+);
+
+DROP TRIGGER IF EXISTS test_fault_after_balance_update;
+
+CALL mims_test.check_that(
+    @suite,
+    'FD14',
+    'A close that fails at its last step leaves the FD and the balance exactly as they were',
+    @message = 'Test fault after the balance update'
+    AND @allow_balance_update = 0
     AND (SELECT COUNT(*) FROM FIXED_DEPOSIT
-         WHERE fd_id = @fd_min AND status = 'ACTIVE' AND close_date IS NULL AND next_payout_date = '2026-12-04') = 1
+         WHERE fd_id = @fd_min
+           AND status = 'ACTIVE'
+           AND close_date IS NULL
+           AND next_payout_date = '2026-12-04') = 1
     AND (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @min_acc) = @before
-    AND (SELECT COUNT(*) FROM `TRANSACTION` WHERE fd_id = @fd_min AND transaction_type = 'FD_CLOSURE') = 0,
-    CONCAT_WS(' ', 'status', (SELECT status FROM FIXED_DEPOSIT WHERE fd_id = @fd_min),
-              'balance', (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @min_acc)));
+    AND (SELECT COUNT(*) FROM `TRANSACTION`
+         WHERE fd_id = @fd_min
+           AND transaction_type = 'FD_CLOSURE') = 0,
+    CONCAT_WS(' ', 'got:', @state, @message,
+              'status', (SELECT status FROM FIXED_DEPOSIT WHERE fd_id = @fd_min),
+              'balance', (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @min_acc))
+);
 
 -- FD15: closing follows the same business hours as opening
 CALL mims_test.clock_at('2026-11-21 10:00:00');
@@ -194,7 +223,109 @@ CALL mims_test.expect_refusal(@suite, 'FD16', 'Closing an FD whose savings accou
 UPDATE SAVINGS_ACCOUNT SET status = 'ACTIVE' WHERE account_id = @spare; 
 CALL mims_test.check_that(@suite, 'FD16', '... and the FD is still ACTIVE', 
     (SELECT status FROM FIXED_DEPOSIT WHERE fd_id = @fd_new) = 'ACTIVE', 'the FD was closed');
-    
+
+-- FD18 and FD19: the customer can open and close an FD online (channel ONLINE, no agent) at any hour, with the other
+-- rules the same as at a branch. Friday 20 November at 15:30; @acc has had no ACTIVE FD since FD11.
+CALL mims_test.clock_at('2026-11-20 15:30:00');
+
+SET @before = (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @acc),
+    @fd_online = NULL,
+    @ref = NULL,
+    @bal = NULL;
+
+CALL mims_test.try_sql(
+    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@acc, @primary, @six_months, 5000.00, 'ONLINE', NULL, @fd_online, @ref, @bal)",
+    @state, @message
+);
+
+CALL mims_test.check_that(
+    @suite,
+    'FD18',
+    'The PRIMARY holder can open an FD online, logged as ONLINE with no agent',
+    @state = '00000'
+    AND @bal = @before - 5000.00
+    AND (SELECT status FROM FIXED_DEPOSIT WHERE fd_id = @fd_online) = 'ACTIVE'
+    AND (
+        SELECT COUNT(*)
+        FROM `TRANSACTION`
+        WHERE reference_no = @ref
+          AND account_id = @acc
+          AND fd_id = @fd_online
+          AND transaction_type = 'FD_OPEN'
+          AND amount = 5000.00
+          AND channel = 'ONLINE'
+          AND processed_by_agent_id IS NULL
+    ) = 1,
+    CONCAT_WS(' ', @state, @message, 'new balance', @bal)
+);
+
+CALL mims_test.expect_refusal(
+    @suite,
+    'FD18',
+    'An online FD that names an agent is refused',
+    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@spare, @primary, @six_months, 1000.00, 'ONLINE', @agent, @fd_x, @ref, @bal)",
+    'An ONLINE, MOBILE or ATM transaction has no agent'
+);
+
+CALL mims_test.expect_refusal(
+    @suite,
+    'FD18',
+    'A BRANCH FD with no agent is refused',
+    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@spare, @primary, @six_months, 1000.00, 'BRANCH', NULL, @fd_x, @ref, @bal)",
+    'Agent not found'
+);
+
+CALL mims_test.expect_refusal(
+    @suite,
+    'FD18',
+    'The SYSTEM channel (kept for the bank''s own postings) cannot open an FD',
+    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@spare, @primary, @six_months, 1000.00, 'SYSTEM', NULL, @fd_x, @ref, @bal)",
+    'Channel must be BRANCH, ONLINE, MOBILE or ATM'
+);
+
+SET @before = (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @acc);
+
+CALL mims_test.expect_refusal(
+    @suite,
+    'FD19',
+    'Closing an FD online with an agent named is refused',
+    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd_online, @primary, 'ONLINE', @agent)",
+    'An ONLINE, MOBILE or ATM transaction has no agent'
+);
+
+CALL mims_test.try_sql(
+    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd_online, @primary, 'ONLINE', NULL)",
+    @state, @message
+);
+
+CALL mims_test.check_that(
+    @suite,
+    'FD19',
+    'The PRIMARY holder can close an FD online; the principal comes back as an ONLINE FD_CLOSURE',
+    @state = '00000'
+    AND (SELECT status FROM FIXED_DEPOSIT WHERE fd_id = @fd_online) = 'CLOSED'
+    AND (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @acc) = @before + 5000.00
+    AND (
+        SELECT COUNT(*)
+        FROM `TRANSACTION`
+        WHERE fd_id = @fd_online
+          AND transaction_type = 'FD_CLOSURE'
+          AND amount = 5000.00
+          AND channel = 'ONLINE'
+          AND processed_by_agent_id IS NULL
+    ) = 1,
+    CONCAT_WS(' ', @state, @message)
+);
+
+CALL mims_test.clock_at('2026-11-21 10:00:00');
+
+CALL mims_test.expect_ok(
+    @suite,
+    'FD19',
+    'An FD can be opened online on a Saturday (online banking has no opening hours)',
+    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@acc, @primary, @six_months, 1000.00, 'ONLINE', NULL, @fd_x, @ref, @bal)"
+);
+
 -- FD17: balances and the one-FD rule still hold 
 CALL mims_test.check_that(@suite, 'FD17', 'Every test account''s balance equals its transaction history',
     (SELECT COUNT(*) FROM SAVINGS_ACCOUNT

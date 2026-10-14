@@ -171,6 +171,43 @@ CALL mims_test.check_that(@suite, 'TR14', 'A second PRIMARY holder inserted dire
     @state = '23000' AND @message LIKE '%uq_holder_one_primary%', CONCAT_WS(' ', 'got:', @state, @message));
 CALL mims_test.check_that(@suite, 'TR14', '... and the account still has its one holder',
     (SELECT COUNT(*) FROM ACCOUNT_HOLDER WHERE account_id = @acc) = 1, 'a holder row was added');
-    
+
+-- TR15: sign-in logins (APP_LOGIN). A login belongs to exactly the person its role says (chk_login_owner).
+CALL mims_test.expect_ok(@suite, 'TR15', 'A CUSTOMER login for a customer is accepted',
+    "INSERT INTO mims.APP_LOGIN (username, password_hash, role, customer_id)
+     VALUES (CONCAT('test', UUID_SHORT()), 'x', 'CUSTOMER', @adult)");
+
+CALL mims_test.expect_check_violation(@suite, 'TR15', 'An ADMIN login that names a customer is refused',
+    "INSERT INTO mims.APP_LOGIN (username, password_hash, role, customer_id)
+     VALUES (CONCAT('test', UUID_SHORT()), 'x', 'ADMIN', @teen)",
+    'chk_login_owner');
+
+CALL mims_test.expect_check_violation(@suite, 'TR15', 'An AGENT login with no agent is refused',
+    "INSERT INTO mims.APP_LOGIN (username, password_hash, role)
+     VALUES (CONCAT('test', UUID_SHORT()), 'x', 'AGENT')",
+    'chk_login_owner');
+
+CALL mims_test.try_sql(
+    "INSERT INTO mims.APP_LOGIN (username, password_hash, role, customer_id)
+     VALUES (CONCAT('test', UUID_SHORT()), 'x', 'CUSTOMER', @adult)",
+    @state, @message
+);
+
+CALL mims_test.check_that(@suite, 'TR15', 'A second login for the same customer is refused',
+    @state = '23000'
+    AND @message LIKE '%uq_login_customer%',
+    CONCAT_WS(' ', 'got:', @state, @message));
+
+CALL mims_test.try_sql(
+    "INSERT INTO mims.APP_LOGIN (username, password_hash, role)
+     VALUES ('ADMIN', 'x', 'ADMIN')",
+    @state, @message
+);
+
+CALL mims_test.check_that(@suite, 'TR15', 'A username already taken is refused, whatever its capitals (ADMIN vs admin)',
+    @state = '23000'
+    AND @message LIKE '%uq_login_username%',
+    CONCAT_WS(' ', 'got:', @state, @message));
+
 CALL mims_test.clock_reset();
 CALL mims_test.report(@suite);

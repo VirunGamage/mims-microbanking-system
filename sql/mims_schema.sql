@@ -265,13 +265,13 @@ CREATE TABLE `TRANSACTION` (
 ) ENGINE=InnoDB;
 
 -- Indexes made to make lookups faster, each one matches a common query pattern.
--- The date column is second in each, so a query must compare txn_timestamp as a plain range (txn_timestamp >= start AND txn_timestamp < end) to use it. 
+-- The date column is second in each, so a query must compare txn_timestamp as a plain range (txn_timestamp >= start AND txn_timestamp < end) to use it.
 -- Wrapping it in DATE(), YEAR() or MONTH() hides the column from the index and MySQL reads every row instead (scripts/perf_check.sql measures it).
 CREATE INDEX idx_txn_account_date ON `TRANSACTION`(account_id, txn_timestamp);   -- An account's history, its daily withdrawals, customer activity
 CREATE INDEX idx_txn_agent_date   ON `TRANSACTION`(processed_by_agent_id, txn_timestamp);   -- An agent's transactions in a period (agent-wise report)
-CREATE INDEX idx_txn_type_date    
+CREATE INDEX idx_txn_type_date
 ON `TRANSACTION`(transaction_type, txn_timestamp);   -- One type in a period (monthly interest report)
-CREATE INDEX idx_txn_fd_id        
+CREATE INDEX idx_txn_fd_id
 ON `TRANSACTION`(fd_id);   -- All transactions tied to one FD (also the foreign key index for fd_id)
 
 -- Holds bank wide settings as key value pairs so things like business hours and interest cycle
@@ -297,6 +297,39 @@ INSERT INTO SYSTEM_CONFIG (config_key, config_value, description) VALUES
     ('age_teen_max',             '17',       'Highest age eligible for the Teen plan'),
     ('age_adult_min',            '18',       'Lowest age eligible for the Adult plan (NIC also required)'),
     ('age_senior_min',           '60',       'Lowest age eligible for the Senior plan');
+
+
+-- Who can sign in to the web app, and as what. A CUSTOMER login opens that customer's online banking, an AGENT login the
+-- branch screens (the agent always works as themselves) and an ADMIN login the Tester view, which belongs to no customer
+-- or agent. The password itself is never stored: only a salted scrypt hash made by the backend (backend/src/session.js).
+CREATE TABLE APP_LOGIN (
+    login_id       INT AUTO_INCREMENT PRIMARY KEY,
+    username       VARCHAR(50) NOT NULL,
+    password_hash  VARCHAR(200) NOT NULL,
+    role           ENUM('CUSTOMER','AGENT','ADMIN') NOT NULL,
+    customer_id    INT NULL,   -- Only for a CUSTOMER login
+    agent_id       INT NULL,   -- Only for an AGENT login
+
+    CONSTRAINT uq_login_username UNIQUE (username),
+    CONSTRAINT uq_login_customer UNIQUE (customer_id),
+    CONSTRAINT uq_login_agent    UNIQUE (agent_id),
+
+    CONSTRAINT chk_login_owner CHECK (
+        (role = 'CUSTOMER' AND customer_id IS NOT NULL AND agent_id IS NULL)
+        OR (role = 'AGENT' AND agent_id IS NOT NULL AND customer_id IS NULL)
+        OR (role = 'ADMIN' AND customer_id IS NULL AND agent_id IS NULL)
+    ),
+
+    CONSTRAINT fk_login_customer
+        FOREIGN KEY (customer_id) REFERENCES CUSTOMER(customer_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT,
+
+    CONSTRAINT fk_login_agent
+        FOREIGN KEY (agent_id) REFERENCES AGENT(agent_id)
+        ON DELETE RESTRICT ON UPDATE RESTRICT
+) ENGINE=InnoDB;
+
+-- uq_login_customer and uq_login_agent are also the indexes behind the two foreign keys.
 
 DELIMITER $$
 
