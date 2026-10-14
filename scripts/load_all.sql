@@ -22,6 +22,7 @@ SOURCE procedures/05_transaction_immutability.sql;
 SOURCE procedures/06_open_fixed_deposit.sql;
 SOURCE procedures/07_interest_posting.sql;
 SOURCE procedures/08_gap_queries.sql;
+SOURCE procedures/09_transfer.sql;
 -- management_reports.sql has no USE mims; of its own, it relies on the USE above.
 SOURCE reports/management_reports.sql;
 

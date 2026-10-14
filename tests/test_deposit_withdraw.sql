@@ -1,7 +1,8 @@
--- Tests for deposits and withdrawals (procedures/01_deposit_withdrawal.sql).
+-- Tests for deposits and withdrawals (procedures/01_deposit_withdrawal.sql) and transfers (procedures/09_transfer.sql).
 -- Each test pins this session's clock to a fixed moment, so business hours and the daily limit are tested the same way at any hour.
 -- Run through tests/run_all.sql, or alone after tests/_helpers.sql:  mysql -u root -p --table < tests/test_deposit_withdraw.sql
 -- This file tests the deposit and withdrawal procedures: amounts, business hours, the daily limit, the minimum balance, who may withdraw and that a failed step leaves nothing saved.
+-- It also tests the customer's own channels (ONLINE, MOBILE, ATM: no agent) and transfers between accounts.
 
 USE mims;
 SET @suite = 'deposit_withdraw';
@@ -250,6 +251,74 @@ CALL mims_test.expect_refusal(@suite, 'DW18', 'A deposit on the SYSTEM channel (
     "CALL mims.PROC_PROCESS_DEPOSIT(@acc, 100.00, 'SYSTEM', NULL, @ref, @bal)", @bad_channel);
 CALL mims_test.expect_refusal(@suite, 'DW18', 'A withdrawal on a channel that does not exist is refused',
     "CALL mims.PROC_PROCESS_WITHDRAWAL(@acc, @holder, 100.00, 'POST', NULL, @ref, @bal)", @bad_channel);
+-- DW19: transfers. A transfer is a WITHDRAWAL from one account and a DEPOSIT into the other, saved together.
+SET @from_before = (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @acc),
+    @to_before = (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @joint),
+    @wref = NULL, @dref = NULL, @bal = NULL;
+CALL mims_test.try_sql("CALL mims.PROC_TRANSFER(@acc, @holder, @joint, 2000.00, 'ONLINE', NULL, @wref, @dref, @bal)",
+                        @state, @message);
+CALL mims_test.check_that(@suite, 'DW19', 'A transfer takes the amount from one account and adds it to the other',
+    @state = '00000' AND @bal = @from_before - 2000.00
+    AND (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @acc) = @from_before - 2000.00
+    AND (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @joint) = @to_before + 2000.00,
+    CONCAT_WS(' ', @state, @message, 'new balance', @bal));
+CALL mims_test.check_that(@suite, 'DW19', 'It is logged as one WITHDRAWAL and one DEPOSIT on the ONLINE channel, with no agent',
+    @wref <> @dref
+    AND (SELECT COUNT(*) FROM `TRANSACTION`
+        WHERE reference_no = @wref AND account_id = @acc AND transaction_type = 'WITHDRAWAL' AND amount = 2000.00
+          AND channel = 'ONLINE' AND processed_by_agent_id IS NULL) = 1
+    AND (SELECT COUNT(*) FROM `TRANSACTION`
+        WHERE reference_no = @dref AND account_id = @joint AND transaction_type = 'DEPOSIT' AND amount = 2000.00
+          AND channel = 'ONLINE' AND processed_by_agent_id IS NULL AND review_flag = 0) = 1,
+    CONCAT_WS(' ', 'references', @wref, @dref));
+CALL mims_test.expect_ok(@suite, 'DW19', 'The SECONDARY holder of a joint account can send money from it',
+    "CALL mims.PROC_TRANSFER(@joint, @second, @acc, 500.00, 'ONLINE', NULL, @wref, @dref, @bal)");
 
+-- DW20: the transfer rules. A refused transfer moves nothing, on either side.
+SET @from_before = (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @acc),
+    @frozen_before = (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @frozen),
+    @rows_before = (SELECT COUNT(*) FROM `TRANSACTION` WHERE account_id IN (@acc, @frozen));
+CALL mims_test.expect_refusal(@suite, 'DW20', 'A transfer into a FROZEN account is refused',
+    "CALL mims.PROC_TRANSFER(@acc, @holder, @frozen, 100.00, 'ONLINE', NULL, @wref, @dref, @bal)",
+    'The account to transfer to is not active');
+CALL mims_test.check_that(@suite, 'DW20', '... and no money leaves the sending account',
+    (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @acc) = @from_before
+    AND (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @frozen) = @frozen_before
+    AND (SELECT COUNT(*) FROM `TRANSACTION` WHERE account_id IN (@acc, @frozen)) = @rows_before,
+    'a balance or the transaction count changed');
+CALL mims_test.expect_refusal(@suite, 'DW20', 'A transfer to an account that does not exist is refused',
+    "CALL mims.PROC_TRANSFER(@acc, @holder, 999999, 100.00, 'ONLINE', NULL, @wref, @dref, @bal)",
+    'The account to transfer to was not found');
+CALL mims_test.expect_refusal(@suite, 'DW20', 'A transfer from a FROZEN account is refused',
+    "CALL mims.PROC_TRANSFER(@frozen, @frozen_holder, @acc, 100.00, 'ONLINE', NULL, @wref, @dref, @bal)", 'Account is not active');
+CALL mims_test.expect_refusal(@suite, 'DW20', 'A transfer to the same account is refused',
+    "CALL mims.PROC_TRANSFER(@acc, @holder, @acc, 100.00, 'ONLINE', NULL, @wref, @dref, @bal)",
+    'A transfer needs two different accounts');
+CALL mims_test.expect_refusal(@suite, 'DW20', 'Someone who is not a holder cannot send money from the account',
+    "CALL mims.PROC_TRANSFER(@acc, @stranger, @joint, 100.00, 'ONLINE', NULL, @wref, @dref, @bal)",
+    'Customer is not a holder of this account');
+CALL mims_test.expect_refusal(@suite, 'DW20', 'A transfer of 0.00 is refused',
+    "CALL mims.PROC_TRANSFER(@acc, @holder, @joint, 0.00, 'ONLINE', NULL, @wref, @dref, @bal)",
+    'Transfer amount must be greater than zero');
+CALL mims_test.expect_refusal(@suite, 'DW20', 'A transfer that would leave less than the plan minimum is refused (@small holds exactly 1,000.00)',
+    "CALL mims.PROC_TRANSFER(@small, @holder, @acc, 0.01, 'ONLINE', NULL, @wref, @dref, @bal)",
+    'Transfer would take the balance below the plan minimum');
+CALL mims_test.expect_refusal(@suite, 'DW20', 'A transfer that names an agent on the ONLINE channel is refused',
+    "CALL mims.PROC_TRANSFER(@acc, @holder, @joint, 100.00, 'ONLINE', @agent, @wref, @dref, @bal)", @no_agent);
+CALL mims_test.clock_at('2026-10-10 10:00:00');
+CALL mims_test.expect_refusal(@suite, 'DW20', 'A transfer at a branch on a Saturday is refused (business hours)',
+"CALL mims.PROC_TRANSFER(@acc, @holder, @joint, 100.00, 'BRANCH', @agent, @wref, @dref, @bal)", @hours);
+CALL mims_test.expect_ok(@suite, 'DW20', 'An ONLINE transfer on a Saturday is accepted',
+     "CALL mims.PROC_TRANSFER(@acc, @holder, @joint, 100.00, 'ONLINE', NULL, @wref, @dref, @bal)");
+-- Money sent counts towards the daily withdrawal limit. On 6 October 100,000.00 was withdrawn from @big (DW10), on 7 October 50,000.00.
+CALL mims_test.clock_at('2026-10-06 11:00:00');
+CALL mims_test.expect_refusal(@suite, 'DW20', 'After 100,000.00 of withdrawals, sending even 0.01 the same day is refused',
+     "CALL mims.PROC_TRANSFER(@big, @holder, @acc, 0.01, 'ONLINE', NULL, @wref, @dref, @bal)", 'Daily withdrawal limit exceeded');
+CALL mims_test.clock_at('2026-10-07 11:00:00');
+CALL mims_test.expect_ok(@suite, 'DW20', 'After 50,000.00 of withdrawals, sending 50,000.00 the same day is accepted (100,000.00 in total)',
+     "CALL mims.PROC_TRANSFER(@big, @holder, @acc, 50000.00, 'ONLINE', NULL, @wref, @dref, @bal)");
+CALL mims_test.expect_refusal(@suite, 'DW20', '... and then even a 0.01 withdrawal that day is refused',
+     "CALL mims.PROC_PROCESS_WITHDRAWAL(@big, @holder, 0.01, 'BRANCH', @agent, @ref, @bal)", 'Daily withdrawal limit exceeded');
+CALL mims_test.clock_at('2026-10-05 10:00:00');
 CALL mims_test.clock_reset();
 CALL mims_test.report(@suite);
