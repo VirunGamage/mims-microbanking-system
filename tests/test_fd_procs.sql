@@ -124,7 +124,7 @@ CALL mims_test.expect_refusal(@suite, 'FD08', 'Opening an FD at 16:00:01 is refu
     "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@spare, @primary, @six_months, 1000.00, 'BRANCH', @agent, @fd_x, @ref, @bal)", @hours);
 CALL mims_test.clock_at('2026-10-05 10:00:00');
 CALL mims_test.expect_refusal(@suite, 'FD09', 'An FD by an agent who is ON_LEAVE is refused',
-    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@spare, @primary, @six_months, 1000.00, , 'BRANCH', @agent_on_leave, @fd_x, @ref, @bal)",
+    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@spare, @primary, @six_months, 1000.00, 'BRANCH', @agent_on_leave, @fd_x, @ref, @bal)",
     'Processing agent is not ACTIVE');
 CALL mims_test.expect_refusal(@suite, 'FD09', 'An FD by an agent who does not exist is refused',
     "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@spare, @primary, @six_months, 1000.00, 'BRANCH', 999999, @fd_x, @ref, @bal)", 'Agent not found');
