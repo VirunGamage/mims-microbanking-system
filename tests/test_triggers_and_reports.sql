@@ -34,7 +34,7 @@ VALUES ('Test', 'Younger TR', NULL, '2010-01-01', @agent, 1);
 SET @younger = LAST_INSERT_ID();
 
 CALL PROC_OPEN_SAVINGS_ACCOUNT(@adult, NULL, 60000.00, @agent, @acc, @no, @acc_ref);
-CALL PROC_OPEN_FIXED_DEPOSIT(@acc, @adult, (SELECT fd_plan_id FROM FD_PLAN WHERE term_name = '6_MONTH'), 40000.00, @agent, @fd, @ref, @bal);
+CALL PROC_OPEN_FIXED_DEPOSIT(@acc, @adult, (SELECT fd_plan_id FROM FD_PLAN WHERE term_name = '6_MONTH'), 40000.00, 'BRANCH', @agent, @fd, @ref, @bal);
 CALL PROC_OPEN_SAVINGS_ACCOUNT(@teen, NULL, 1000.00, @agent, @teen_acc, @no, @ref);  -- Teen plan
 
 
