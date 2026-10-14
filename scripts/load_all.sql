@@ -13,6 +13,7 @@ SOURCE sample-data/02_savings_accounts_holders.sql;
 -- 04 before 03: transactions point at fixed deposits (foreign key fk_txn_fd), so the FDs must exist first.
 SOURCE sample-data/04_fixed_deposits.sql;
 SOURCE sample-data/03_transactions.sql;
+SOURCE sample-data/05_app_logins.sql;
 
 SOURCE procedures/01_deposit_withdrawal.sql;
 SOURCE procedures/02_open_savings_account.sql;

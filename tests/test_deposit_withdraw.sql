@@ -320,5 +320,77 @@ CALL mims_test.expect_ok(@suite, 'DW20', 'After 50,000.00 of withdrawals, sendin
 CALL mims_test.expect_refusal(@suite, 'DW20', '... and then even a 0.01 withdrawal that day is refused',
      "CALL mims.PROC_PROCESS_WITHDRAWAL(@big, @holder, 0.01, 'BRANCH', @agent, @ref, @bal)", 'Daily withdrawal limit exceeded');
 CALL mims_test.clock_at('2026-10-05 10:00:00');
+-- DW21: all or nothing. A test trigger fails only the receiving account's balance UPDATE, which comes after the sending
+-- account was updated and both rows were inserted, so all of that must be undone.
+DELIMITER $$
+CREATE TRIGGER test_fault_after_balance_update AFTER UPDATE ON SAVINGS_ACCOUNT FOR EACH ROW
+BEGIN
+    IF NEW.account_id = @fault_account THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Test fault after the balance update';
+    END IF;
+END$$
+DELIMITER ;
+
+SET @fault_account = @joint,
+    @from_before = (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @acc),
+    @to_before = (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @joint),
+    @rows_before = (SELECT COUNT(*) FROM `TRANSACTION` WHERE account_id IN (@acc, @joint));
+
+CALL mims_test.try_sql(
+    "CALL mims.PROC_TRANSFER(@acc, @holder, @joint, 700.00, 'ONLINE', NULL, @wref, @dref, @bal)",
+    @state, @message
+);
+
+DROP TRIGGER IF EXISTS test_fault_after_balance_update;
+
+CALL mims_test.check_that(
+    @suite,
+    'DW21',
+    'A transfer that fails at its last step leaves both accounts exactly as they were',
+    @message = @fault AND @allow_balance_update = 0
+    AND (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @acc) = @from_before
+    AND (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @joint) = @to_before
+    AND (SELECT COUNT(*) FROM `TRANSACTION` WHERE account_id IN (@acc, @joint)) = @rows_before,
+    CONCAT_WS(' ', 'got:', @state, @message)
+);
+
+-- DW21: a large amount arriving is flagged for review, as for a deposit. The daily limit normally keeps a transfer far
+-- below the 1,000,000.00 threshold, so the limit is raised for this one test and put back straight after.
+UPDATE SYSTEM_CONFIG
+SET config_value = '5000000.00'
+WHERE config_key = 'daily_withdrawal_limit';
+
+SET @wref = NULL, @dref = NULL;
+
+CALL mims_test.try_sql(
+    "CALL mims.PROC_TRANSFER(@acc, @holder, @joint, 1000000.01, 'ONLINE', NULL, @wref, @dref, @bal)",
+    @state, @message
+);
+
+UPDATE SYSTEM_CONFIG
+SET config_value = '100000.00'
+WHERE config_key = 'daily_withdrawal_limit';
+
+CALL mims_test.check_that(
+    @suite,
+    'DW21',
+    'A transfer of 1,000,000.01 is accepted and the arriving DEPOSIT is flagged for review',
+    @state = '00000'
+    AND (SELECT review_flag FROM `TRANSACTION` WHERE reference_no = @dref) = 1
+    AND (SELECT review_flag FROM `TRANSACTION` WHERE reference_no = @wref) = 0,
+    CONCAT_WS(' ', @state, @message)
+);
+
+-- DW22: after the online transactions and transfers, the stored balances still equal the transaction history
+CALL mims_test.check_that(
+    @suite,
+    'DW22',
+    'Every test account''s balance still equals its transaction history',
+    (SELECT COUNT(*)
+     FROM SAVINGS_ACCOUNT
+     WHERE account_id IN (@acc, @small, @big, @joint, @frozen)
+       AND balance = mims_test.ledger_balance(account_id)) = 5,
+    'at least one balance differs from its transactions'
+);
 CALL mims_test.clock_reset();
 CALL mims_test.report(@suite);
