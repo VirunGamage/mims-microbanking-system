@@ -1049,3 +1049,65 @@ select:disabled {
 .nowrap {
   white-space: nowrap;
 }
+
+/* ---------- Signed-in user (staff screens) ---------- */
+
+.splash {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+}
+
+.brand-mark {
+  flex: none;
+  display: block;
+}
+
+.acting-as--fixed {
+  margin: 0;
+  gap: var(--space-1);
+}
+
+.acting-as__label {
+  margin-right: var(--space-1);
+  font-weight: 600;
+  color: var(--pine-900);
+}
+
+.user-menu {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.branch-pill + .user-menu {
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--rule);
+}
+
+.user-menu__who {
+  display: grid;
+  line-height: 1.15;
+  text-align: right;
+}
+
+.user-menu__name {
+  font-weight: 600;
+  color: var(--pine-900);
+}
+
+.user-menu__role {
+  font-size: var(--text-xs);
+  color: var(--slate-500);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* The period picker on My reports: two dates and a Today button on one line */
+.report-period {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
+  margin-bottom: var(--space-4);
+}

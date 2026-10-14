@@ -9,7 +9,7 @@ Each person presents their own part, so everyone shows what they can explain. Sa
 1. `mysql -u root -p < scripts/load_all.sql` — fresh sample data (15 customers, 13 accounts, 10 FDs, 230 transactions).
 2. Start the backend (`npm run dev` in `backend/`) and the frontend (`npm run dev` in `frontend/`); open http://localhost:5173.
 3. `node scripts/smoke-test.mjs` — every line PASS or SKIP.
-4. In the app: **Acting as** Alice Smith (Central Branch), **View: Agent**.
+4. In the app: sign in on the **Agent** tab as `alice` / `demo1234` (Alice Smith, Central Branch).
 5. Check the **Branch open / closed** light. If the viva is outside Monday–Friday 09:00–16:00, use the *closed branch* notes below: never change the hours for a demo.
 6. Have a terminal ready in the repository folder for step 8.
 
@@ -47,10 +47,17 @@ On **Transactions**, choose the new account (or SA0000007):
 
 ## 6. Interest and data checks — Rukshi (2 minutes)
 
-1. Switch **View: Tester**. Open **Data checks**: both checks are empty for the sample data, which is the right answer; explain the two known gaps (NIC at 18, outgrown plans).
+1. Sign out and sign in on the **Admin** tab as `admin` / `demo1234` (the Tester view). Open **Data checks**: both checks are empty for the sample data, which is the right answer; explain the two known gaps (NIC at 18, outgrown plans).
 2. **Run interest** for today → confirm → FD payouts posted (FD interest, then maturity, then savings interest, in the database's own order). Run it again → 0, 0, 0: "each posting moves the due date on, so nothing is paid twice."
-3. Back on Fixed deposits, FD 9 is no longer due; close it as Lucas Thompson → LKR 15,000 back to SA0000012. (Works in or out of hours: closing has no hours check today, a known gap.)
+3. Back on Fixed deposits, FD 9 is no longer due; close it as Lucas Thompson → LKR 15,000 back to SA0000012. (At the branch this needs business hours; online, step 6b, it works at any hour.)
 4. The *What was sent / what the database returned* panel shows the procedure name, the parameters and the OUT values.
+
+## 6b. Online banking — (who presents it) (2 minutes)
+
+1. Sign out; on the **Customer** tab sign in as `james` / `demo1234`. "Customers sign in to the same database through their own pages, and only ever see their own accounts."
+2. **Send money** LKR 2,000 to `SA0000007`: the name check shows *S. Thomas*; confirm → two reference numbers. "PROC_TRANSFER saves the withdrawal and the deposit together or not at all, and locks the two accounts in a fixed order so two opposite transfers cannot deadlock."
+3. **History**: the transfer is the newest line; download the statement.
+4. Sign in as `sophia`: **Fixed deposits** → 1 year, LKR 20,000 → the preview, then open it. "Online, there are no opening hours: only branch transactions keep the 09:00–16:00 rule, decided in one place, PROC_CHECK_CHANNEL."
 
 ## 7. Reports — Rukshi (1 minute)
 
@@ -58,7 +65,7 @@ Agent activity from 1 January to 30 September 2026 (switch count/value), Monthly
 
 ## 8. How we know it works — Virun (1 minute)
 
-In the terminal: `mysql -u root -p --table < tests/run_all.sql`. While it runs (a few seconds): "Each test pins its session clock to a fixed moment, so business hours, ages and interest dates are tested the same way at any time. To prove the tests would catch a mistake, we broke each rule on purpose in a throw-away copy — 68 breakages, all caught." Show the last line: **ALL 166 CHECKS PASS**. (It reloads the sample data at the end.)
+In the terminal: `mysql -u root -p --table < tests/run_all.sql`. While it runs (a few seconds): "Each test pins its session clock to a fixed moment, so business hours, ages and interest dates are tested the same way at any time. To prove the tests would catch a mistake, we broke each rule on purpose in a throw-away copy — 68 breakages, all caught." Show the last line: **ALL 213 CHECKS PASS**. (It reloads the sample data at the end.)
 
 ## If something goes wrong
 

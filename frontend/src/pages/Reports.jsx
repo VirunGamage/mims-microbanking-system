@@ -21,7 +21,8 @@ import { formatMoney } from '../utils/money.js';
 import { shortNumber, toNumber } from '../components/charts/scale.js';
 import '../styles/reports.css';
 
-export const meta = { path: '/reports', title: 'Reports', order: 5 };
+// adminOnly: the reports cover every branch, agent and customer, so they are for admin (manager) logins, not agents
+export const meta = { path: '/reports', title: 'Reports', order: 5, adminOnly: true };
 
 const REPORTS = [
   { id: 'agent-wise', title: 'Agent activity', routine: 'RPT_AGENT_WISE_TRANSACTIONS', about: 'How many transactions each agent processed in a period, and their total value.' },

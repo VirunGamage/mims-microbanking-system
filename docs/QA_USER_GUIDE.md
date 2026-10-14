@@ -2,7 +2,7 @@
 
 **Author:** Sameera
 **System:** B-Trust Microbanking and Interest Management System (MIMS)
-**For:** QA testers and branch agents
+**For:** QA testers, branch agents and the online banking (customer) pages
 
 This guide shows how to use each screen of the MIMS web app to check the requirements in the SRS. Every rule is enforced by the MySQL database (stored procedures and triggers); the pages only send requests and show the database's answer. The expected values below were checked on a freshly loaded database.
 
@@ -12,9 +12,10 @@ This guide shows how to use each screen of the MIMS web app to check the require
 
 1. **Load fresh sample data** (Command Prompt on Windows, from the repository folder): `mysql -u root -p < scripts/load_all.sql`. It ends by printing 15 customers, 13 accounts, 10 fixed deposits and 230 transactions. Testing changes data, so reload before every test round.
 2. **Start the app:** `npm run dev` in `backend/`, then `npm run dev` in `frontend/`, and open http://localhost:5173.
-3. **Acting as** (top bar): choose the agent who is doing the work. Only ACTIVE agents are listed. A new customer is registered at that agent's branch, and every deposit, withdrawal and fixed deposit records that agent.
-4. **View** (top bar): *Agent* shows the everyday pages. *Tester* also shows the **Data checks** page and, under every page, a *What was sent / what the database returned* panel with the procedure name, its parameters and the values it returned. No SQL errors or stack traces are ever shown.
-5. **Branch open / Branch closed** (top bar): the database decides this from its own clock. Deposits, withdrawals, new accounts and new fixed deposits are accepted only **Monday to Friday, 09:00–16:00** (database time). Outside those hours the procedures refuse them; see section 9.
+3. **Sign in** on the start page. For sections 2 to 9 use the **Admin** tab with `admin` / `demo1234`; an **Agent** login (`alice`, `carol`) shows the branch pages and *My reports* (their own transactions, and fixed deposits due soon), without the management reports and the Tester tools, and always works as that agent. Customer logins are in section 10.
+4. **Acting as** (top bar, admin only): choose the agent who is doing the work. Only ACTIVE agents are listed. A new customer is registered at that agent's branch, and every deposit, withdrawal and fixed deposit records that agent.
+5. **View** (top bar, admin only): *Agent* shows the everyday pages. *Tester* also shows the **Data checks** page and, under every page, a *What was sent / what the database returned* panel with the procedure name, its parameters and the values it returned. No SQL errors or stack traces are ever shown.
+6. **Branch open / Branch closed** (top bar): the database decides this from its own clock. Deposits, withdrawals, new accounts, new fixed deposits and early fixed-deposit closures are accepted only **Monday to Friday, 09:00–16:00** (database time). Outside those hours the procedures refuse them; see section 9.
 
 ---
 
@@ -151,12 +152,31 @@ Note: in September 2026 the FD interest column is 0.00 until **Run interest** ha
 
 ## 9. Outside business hours — REQ-TXN-03
 
-Outside Monday to Friday 09:00–16:00 (database clock) the top bar says **Branch closed**, the forms show a note, and the database refuses deposits, withdrawals, new accounts and new fixed deposits with: "Transactions are only accepted Mon-Fri during business hours". The red box is titled *The branch is closed* and explains that this is the rule working, not a fault. Nothing is saved. Searching, the passbook, reports and Data checks still work.
+Outside Monday to Friday 09:00–16:00 (database clock) the top bar says **Branch closed**, the forms show a note, and the database refuses deposits, withdrawals, new accounts, new fixed deposits and early fixed-deposit closures with: "Transactions are only accepted Mon-Fri during business hours". The red box is titled *The branch is closed* and explains that this is the rule working, not a fault. Nothing is saved. Searching, the passbook, reports and Data checks still work. Online banking (section 10) is not limited by these hours.
 
 Never change the business hours to make a test or a demo pass. Test the money actions on a weekday between 09:00 and 16:00.
 
 ---
 
-## 10. After testing
+## 10. Online banking (customer sign-in)
 
-Reload the database (`scripts/load_all.sql`). To check everything at once, run `mysql -u root -p --table < tests/run_all.sql`: the last line must say **ALL 166 CHECKS PASS**.
+Sign out (top right), then sign in on the **Customer** tab. Every demo password is `demo1234`. Online banking works at any hour.
+
+| Step | Expected result |
+|---|---|
+| Sign in as `james` on the **Agent** tab | Refused: "This is a customer login. Choose the customer tab to sign in." |
+| Sign in as `james` on the Customer tab | *Overview*: SA0000006 with its balance and *Can send today*, FD 3 (LKR 50,000, 1 year at 14%) and the latest activity |
+| *Send money*: to `SA0000007`, LKR 2,000 | The name check shows **S. Thomas**; *Review and send*, then *Send now*: *Money sent* with two reference numbers and the new balance |
+| *History* | The transfer is the newest line (*Withdrawal · online*); *Download statement (CSV)* saves the whole passbook |
+| *Send money* to `SA0000006` (his own account) | Refused beside the field: choose another account |
+| *Send money* LKR 60,000 | Refused beside the amount: more than can be sent today (the balance must keep the LKR 1,000 minimum) |
+| *Fixed deposits*: FD 3, *Close early* | Disabled while a payout is due ("the bank posts it first"); after an admin runs interest (section 8) it can be closed: LKR 50,000 back to savings |
+| Sign in as `sophia`, *Fixed deposits*, 1 year, LKR 20,000 | The preview shows LKR 230.14 every 30 days; *Open it* gives *Fixed deposit opened* and the balance drops by LKR 20,000 |
+| Sign in as `harper` (second holder of SA0000012) | Can send money from SA0000012, but *Open a fixed deposit* says only the primary holder can open one, and FD 9 cannot be closed by her |
+| Any customer: change the address to `/customers` | The online banking *Page not found*: customers never see the branch screens, and the API refuses them (403) |
+
+---
+
+## 11. After testing
+
+Reload the database (`scripts/load_all.sql`). To check everything at once, run `mysql -u root -p --table < tests/run_all.sql`: the last line must say **ALL 213 CHECKS PASS**.

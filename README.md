@@ -1,6 +1,6 @@
 # MIMS — Microbanking and Interest Management System (B-Trust)
 
-MIMS is the central database for B-Trust, a microfinance bank in Sri Lanka. It records branches and agents, customers, savings accounts (single and joint), fixed deposits and every money movement, and it posts interest every 30 days. **All business rules live in the MySQL database** (stored procedures, functions and triggers). The small web app in `backend/` and `frontend/` lets QA testers and branch agents use those rules; it never changes a balance by itself.
+MIMS is the central database for B-Trust, a microfinance bank in Sri Lanka. It records branches and agents, customers, savings accounts (single and joint), fixed deposits and every money movement, and it posts interest every 30 days. **All business rules live in the MySQL database** (stored procedures, functions and triggers). The web app in `backend/` and `frontend/` lets customers (online banking), branch agents and admins (the Tester view) sign in and use those rules; it never changes a balance by itself.
 
 Group 27 — Database Systems project.
 
@@ -9,8 +9,8 @@ Group 27 — Database Systems project.
 | Folder | What it holds |
 |---|---|
 | `sql/` | `mims_schema.sql`: the tables, keys, checks and the first triggers |
-| `sample-data/` | Sample branches, agents, customers, accounts, fixed deposits and 230 transactions |
-| `procedures/` | Stored procedures, functions, triggers, the daily interest event and the Data Checks views |
+| `sample-data/` | Sample branches, agents, customers, accounts, fixed deposits, 230 transactions and the demo sign-ins |
+| `procedures/` | Stored procedures, functions, triggers, the daily interest event, the Data Checks views and transfers (`09_transfer.sql`) |
 | `reports/` | The five management reports |
 | `scripts/` | `load_all.sql` (rebuild the database), `create_app_user.sql` (the app's limited MySQL user), `smoke-test.mjs` (environment check) |
 | `tests/` | `validate_sample_data.sql` (36 data checks), `run_all.sql` with the five SQL test files and their helpers |
@@ -156,25 +156,64 @@ cd frontend
 npm run dev
 ```
 
-Then open **http://localhost:5173**. To stop either one, press `Ctrl + C` in its window.
+Then open **http://localhost:5173** and sign in with one of the demo accounts (next section). To stop either one, press `Ctrl + C` in its window.
+
+## Sign in and online banking
+
+The app opens on B-Trust's start page: the savings plans and fixed deposit rates (read from the database), and a
+sign-in box with three tabs.
+
+| Login | What it opens |
+|---|---|
+| **Customer** | Online banking: their own accounts and balances, the passbook with a statement download, sending money to any B-Trust account (with the recipient's name shown first), and opening or closing a fixed deposit |
+| **Agent** | The branch screens (customers, accounts, deposits and withdrawals, fixed deposits) and *My reports*: their own transactions with totals for the cash drawer, and the fixed deposits at any branch due for a payout or maturity soon. The agent always works as themselves |
+| **Admin** | Everything an agent has, the five management reports (they cover every branch, agent and customer), the choice of which agent to act as, and the Tester view (Data checks, Run interest, and what the database returned for each request) |
+
+**Demo accounts** (in `sample-data/05_app_logins.sql`; every password is `demo1234`):
+
+| Username | Login | Who |
+|---|---|---|
+| `james` | Customer | James Anderson: Adult account with an active fixed deposit |
+| `sophia` | Customer | Sophia Thomas: Adult account, no fixed deposit yet (try opening one) |
+| `lucas` | Customer | Lucas Thompson: primary holder of a joint account |
+| `harper` | Customer | Harper Garcia: second holder of the same joint account (can send money, cannot open or close its fixed deposit) |
+| `alice` | Agent | Alice Smith, Central Branch |
+| `carol` | Agent | Carol Lee, North Branch |
+| `admin` | Admin | Every screen and the Tester view |
+
+**How it works.** The logins are in the `APP_LOGIN` table: a login belongs to one customer, one agent, or (admin) to
+nobody, and a CHECK constraint makes sure of it. Passwords are never stored: only a salted scrypt hash. After signing
+in, the browser keeps a signed, HttpOnly session cookie for 8 hours (`backend/src/session.js`). Every API route checks
+the kind of login: a customer only reaches `/api/me/...`, which always works on the signed-in customer, never on an id
+sent by the page; only an admin reaches the management reports and the Tester tools.
+
+**Online banking has no opening hours.** Transfers and fixed deposits made by a customer go through the same procedures
+as at the branch, on the `ONLINE` channel with no agent, at any hour. Only transactions at a branch counter (`BRANCH`
+channel) keep the Monday–Friday 09:00–16:00 rule. `PROC_CHECK_CHANNEL` decides this in one place. Reports, searches and
+the passbook can be read at any time by every login.
+
+**Transfers** (`PROC_TRANSFER`) are stored as the two movements they are made of: a WITHDRAWAL from one account and a
+DEPOSIT into the other, saved together or not at all, so the daily limit, the review flag and the reports treat them
+like any other withdrawal and deposit. The two accounts are always locked in the same order, so two opposite transfers
+at the same moment cannot deadlock.
 
 **Check your setup** at any time with `node scripts/smoke-test.mjs` (run from the repository folder while both are running; it changes no data). Every line should say PASS or SKIP (SKIP = that part is not merged yet); a FAIL line says what to fix.
 
-**Business hours are a rule, not a bug:** deposits, withdrawals, new accounts and new fixed deposits are only accepted Monday to Friday, 09:00–16:00 (database time).
+**Business hours are a rule, not a bug:** at a branch, deposits, withdrawals, new accounts, new fixed deposits and early fixed-deposit closures are only accepted Monday to Friday, 09:00–16:00 (database time). Online banking (customers) is open at any hour.
 
 ## Tests
 
 | What | Command | Needs |
 |---|---|---|
 | Sample-data checks (36) | `mysql -u root -p mims < tests/validate_sample_data.sql` | a freshly loaded database |
-| SQL tests for every procedure, trigger, view and report (166 checks) | `mysql -u root -p --table < tests/run_all.sql` | MySQL (run from the repository folder) |
+| SQL tests for every procedure, trigger, view and report (213 checks) | `mysql -u root -p --table < tests/run_all.sql` | MySQL (run from the repository folder) |
 | Backend unit tests | `cd backend` then `npm test` | nothing else |
 | Backend database tests (connection, report numbers) | `cd backend` then `npm run test:db` | MySQL, `backend/.env` |
 | Frontend tests and build | `cd frontend` then `npm test` and `npm run build` | nothing else |
 
 The data checks expect exactly 15 customers and 10 fixed deposits, so reload the database before running them if you have used the app.
 
-**About the SQL tests.** Each test sets its own session clock to a fixed moment, so business hours, ages and interest dates give the same result at any time of day. `run_all.sql` loads the database, runs the five test files and loads the database again at the end (test transactions cannot be deleted), so it also wipes anything entered through the app. The last table must say `ALL 166 CHECKS PASS`. To run one file on its own, load `tests/_helpers.sql` first.
+**About the SQL tests.** Each test sets its own session clock to a fixed moment, so business hours, ages and interest dates give the same result at any time of day. `run_all.sql` loads the database, runs the five test files and loads the database again at the end (test transactions cannot be deleted), so it also wipes anything entered through the app. The last table must say `ALL 213 CHECKS PASS`. To run one file on its own, load `tests/_helpers.sql` first.
 
 ## Continuous integration (CI)
 
@@ -184,7 +223,7 @@ Every push to `main` and every pull request starts GitHub Actions (`.github/work
 |---|---|
 | Frontend tests and build | `npm ci`, `npm test` and `npm run build` in `frontend/` |
 | Backend unit tests | `npm ci` and `npm test` in `backend/` |
-| SQL tests (166 checks) | starts a fresh MySQL 8.0 service, runs `tests/run_all.sql`, and fails unless the result is `ALL 166 CHECKS PASS` |
+| SQL tests (213 checks) | starts a fresh MySQL 8.0 service, runs `tests/run_all.sql`, and fails unless the result is `ALL 213 CHECKS PASS` |
 
 A pull request is merged only when all three jobs show a green tick (the Checks box of the pull request, or the Actions tab on GitHub). Because the SQL job starts from an empty database on a new machine, it proves that the tests do not depend on anything on one person's computer.
 
@@ -201,7 +240,7 @@ A pull request is merged only when all three jobs show a green tick (the Checks 
 
 | Feature | Where |
 |---|---|
-| User experience | *User experience (UX)* |
+| User experience | *User experience (UX)*, and the start page with online banking (*Sign in and online banking*) |
 | CI/CD | *Continuous integration (CI)*, and automatic deployment to the server in *Cloud hosting* |
 | Cloud hosting | *Cloud hosting* |
 | Containerization | *Run with Docker* |

@@ -8,6 +8,7 @@ import { Link, NavLink, Route, Routes, useLocation } from 'react-router-dom';
 import { useBranchStatus } from './api/useApi.js';
 import RequestPanel from './components/RequestPanel.jsx';
 import { useAgent } from './context/AgentContext.jsx';
+import { useAuth } from './context/AuthContext.jsx';
 
 const pageModules = import.meta.glob('./pages/*.jsx', { eager: true });
 const PAGES = Object.values(pageModules)
@@ -16,13 +17,14 @@ const PAGES = Object.values(pageModules)
   .sort((a, b) => a.order - b.order);
 
 export default function App() {
-  const { isTester } = useAgent();
+  const { isTester, canChoose } = useAgent();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => setMenuOpen(false), [location.pathname]);
 
-  const agentPages = PAGES.filter((page) => !page.testerOnly);
+  // An agent login does not see the admin-only pages (the management reports) in the menu
+  const agentPages = PAGES.filter((page) => !page.testerOnly && (canChoose || !page.adminOnly));
   const testerPages = PAGES.filter((page) => page.testerOnly);
 
   return (
@@ -85,13 +87,64 @@ export default function App() {
 }
 
 function TopBar() {
-  const { agents, agentsError, agentsLoading, agentId, setAgentId, viewMode, setViewMode } = useAgent();
+  const { canChoose } = useAgent();
   const status = useBranchStatus();
-
-  const useTypedId = !agentsLoading && (agentsError || agents.length === 0);
 
   return (
     <div className="topbar">
+      {canChoose ? <AgentChooser /> : <SignedInAgent />}
+      <BranchPill status={status} />
+      <UserMenu />
+    </div>
+  );
+}
+
+// An agent who signed in works as themselves, so the bar just says who that is.
+function SignedInAgent() {
+  const { user } = useAuth();
+  return (
+    <p className="acting-as acting-as--fixed">
+      <span className="acting-as__label">Agent</span>
+      <span>
+        <strong>{user.name}</strong>
+        {user.branchName ? `, ${user.branchName}` : ''}
+      </span>
+    </p>
+  );
+}
+
+function UserMenu() {
+  const { user, signOut } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const role = { AGENT: 'Agent', ADMIN: 'Admin' }[user.role] ?? user.role;
+  return (
+    <div className="user-menu">
+      <span className="user-menu__who">
+        <span className="user-menu__name">{user.username}</span>
+        <span className="user-menu__role">{role}</span>
+      </span>
+      <button
+        type="button"
+        className="button button--quiet button--small"
+        disabled={busy}
+        onClick={() => {
+          setBusy(true);
+          signOut();
+        }}
+      >
+        Sign out
+      </button>
+    </div>
+  );
+}
+
+// For an admin: which agent to act as, and the Agent/Tester switch.
+function AgentChooser() {
+  const { agents, agentsError, agentsLoading, agentId, setAgentId, viewMode, setViewMode } = useAgent();
+  const useTypedId = !agentsLoading && (agentsError || agents.length === 0);
+
+  return (
+    <>
       <div className="acting-as">
         <label htmlFor="acting-agent">Acting as</label>
         {useTypedId ? (
@@ -142,9 +195,7 @@ function TopBar() {
           </label>
         ))}
       </fieldset>
-
-      <BranchPill status={status} />
-    </div>
+    </>
   );
 }
 
@@ -165,7 +216,7 @@ function BranchPill({ status }) {
 }
 
 function PageFrame({ page }) {
-  const { isTester } = useAgent();
+  const { isTester, canChoose } = useAgent();
   const firstRender = useRef(true);
 
   useEffect(() => {
@@ -175,11 +226,19 @@ function PageFrame({ page }) {
     else document.getElementById('main')?.focus({ preventScroll: true });
   }, [page]);
 
+  if (page.adminOnly && !canChoose) {
+    return (
+      <div className="banner banner--info">
+        <p className="banner__title">{page.title} are for the bank's managers</p>
+        <p>They cover every branch, agent and customer, so they need an admin login.</p>
+      </div>
+    );
+  }
   if (page.testerOnly && !isTester) {
     return (
       <div className="banner banner--info">
         <p className="banner__title">{page.title} is part of the Tester view</p>
-        <p>Switch the view to Tester in the bar at the top to use this page.</p>
+        <p>{canChoose ? 'Switch the view to Tester in the bar at the top to use this page.' : 'Sign in with an admin login to use this page.'}</p>
       </div>
     );
   }

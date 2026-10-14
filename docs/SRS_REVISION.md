@@ -8,12 +8,12 @@ The SRS v3.0 (24 September 2026), the Briefing and the design documents describe
 
 | Item | v3.0 said | Now |
 |---|---|---|
-| Tables | 11 | 13: the 11 business tables, plus `TXN_REF_SEQ` and `ACCOUNT_NO_SEQ`, which hand out reference and account numbers |
+| Tables | 11 | 14: the 11 business tables, `APP_LOGIN` (the web app's sign-ins), plus `TXN_REF_SEQ` and `ACCOUNT_NO_SEQ`, which hand out reference and account numbers |
 | Triggers | 3 | 8: `trg_customer_bi`, `trg_customer_bu`, `trg_transaction_bi`, `trg_agent_branch_lock` (schema); `trg_single_active_fd`, `trg_savings_balance_guard` (procedures/04); `trg_transaction_bu`, `trg_transaction_bd` (procedures/05) |
-| Routines | not yet written | 18 (procedures and one function), 3 views, 1 event (created disabled) |
+| Routines | not yet written | 20 (procedures and one function, including `PROC_CHECK_CHANNEL` and `PROC_TRANSFER`), 3 views, 1 event (created disabled) |
 | Sample transactions | about 150 | 230 |
 | Validator checks | 33 (SRS) / 34 (Briefing) | 36 |
-| Tests | — | 166 SQL checks in `tests/` and 18 database checks in `backend/test/integration/`; every rule was also broken on purpose to prove its test fails (68 breakages, all caught) |
+| Tests | — | 213 SQL checks in `tests/` and 18 database checks in `backend/test/integration/`; every rule was also broken on purpose to prove its test fails (68 breakages, all caught) |
 | QA UI | Python/Streamlit, no API tier | React web pages + a thin Node.js/Express API that only calls the database's procedures |
 
 ---
@@ -38,7 +38,7 @@ The SRS v3.0 (24 September 2026), the Briefing and the design documents describe
 
 **Replace the paragraph with:**
 
-"The lightweight UI is a web application with two views: an **Agent view** for the everyday tasks and a **Tester view** that adds a *What was sent / what the database returned* panel and a Data Checks page. A header shows the agent the user is acting as (only ACTIVE agents are offered) and whether the branch is open. The screens are: (a) Home: the business rules in plain words, read from `SYSTEM_CONFIG`, `SAVINGS_PLAN` and `FD_PLAN`; (b) Customers: search, details with accounts, and registration; (c) Open account: individual or joint (two holders); the database chooses the plan from the primary holder's age (Joint when there is a second holder), and the screen shows the plan it expects; (d) Transactions: deposit and withdrawal with immediate balance and limit feedback, and a passbook with a running balance; (e) Fixed deposits: opening, the list with the next payout date, and early closure with a dialog that states the forfeiture rule; (f) Reports: the five management reports, each with its filters (date range, branch, or month), a chart, a table and CSV export; (g) Data checks (Tester view): the two known-gap queries and a QA-only interest run. Error messages from constraints, procedures and triggers (e.g. "Withdrawal would take the balance below the plan minimum") are shown in plain language beside the field they concern, never as SQL error codes."
+"The UI is a web application that opens on a public start page (the savings plans and fixed deposit rates, read from the database) with a sign-in for three kinds of login, kept in `APP_LOGIN` with salted password hashes. A **customer** login opens online banking: their own accounts, the passbook with a statement download, transfers to any B-Trust account (`PROC_TRANSFER`), and opening and closing fixed deposits, all on the ONLINE channel at any hour. An **agent** login opens the branch screens and *My reports* (their own transactions for the cash drawer, and the fixed deposits at any branch due soon) and always works as that agent; branch transactions keep the business-hours rule. An **admin** login adds the management reports (they cover every branch, agent and customer), the choice of agent and the **Tester view**, which adds a *What was sent / what the database returned* panel and a Data Checks page. A header shows the agent at work and whether the branch is open. The screens are: (a) Home: the business rules in plain words, read from `SYSTEM_CONFIG`, `SAVINGS_PLAN` and `FD_PLAN`; (b) Customers: search, details with accounts, and registration; (c) Open account: individual or joint (two holders); the database chooses the plan from the primary holder's age (Joint when there is a second holder), and the screen shows the plan it expects; (d) Transactions: deposit and withdrawal with immediate balance and limit feedback, and a passbook with a running balance; (e) Fixed deposits: opening, the list with the next payout date, and early closure with a dialog that states the forfeiture rule; (f) Reports: the five management reports, each with its filters (date range, branch, or month), a chart, a table and CSV export; (g) Data checks (Tester view): the two known-gap queries and a QA-only interest run. Error messages from constraints, procedures and triggers (e.g. "Withdrawal would take the balance below the plan minimum") are shown in plain language beside the field they concern, never as SQL error codes."
 
 **Why:** the screens grew as TBD 7 allowed, and §3.1(b) said "plan selection" although `PROC_OPEN_SAVINGS_ACCOUNT` has no plan parameter: the database picks the plan.
 
@@ -103,7 +103,7 @@ The SRS v3.0 (24 September 2026), the Briefing and the design documents describe
 - **§1**, replace "plus one lightweight QA screen in Python that calls the database directly. There is no separate API tier. The depth of the QA screen is flexible…" with: "plus a lightweight QA web app: React pages and a thin Node.js/Express API that only calls the database's procedures. The app has an Agent view and a Tester view."
 - **§2**: "11 tables" → "11 business tables (plus two helper tables for reference and account numbers)"; "one PRIMARY, one or more SECONDARY holders" → "one PRIMARY and one SECONDARY holder".
 - **§3 Files**: validator "34 read-only checks" → "36"; add rows for `procedures/`, `reports/`, `scripts/load_all.sql`, `tests/run_all.sql`, `backend/`, `frontend/`, `docs/`.
-- **§4 Next steps**: replace with: "1. Each member merges their slice (see the README). 2. Run `tests/run_all.sql` (ALL 166 CHECKS PASS) and the validator (36 PASS). 3. Apply the proposed SQL changes in the owners' own commits. 4. Rehearse the demo (`docs/DEMO_SCRIPT.md`)."
+- **§4 Next steps**: replace with: "1. Each member merges their slice (see the README). 2. Run `tests/run_all.sql` (ALL 213 CHECKS PASS) and the validator (36 PASS). 3. Apply the proposed SQL changes in the owners' own commits. 4. Rehearse the demo (`docs/DEMO_SCRIPT.md`)."
 
 ## 14. ERD, Data Dictionary and Schema-vs-ERD Audit
 

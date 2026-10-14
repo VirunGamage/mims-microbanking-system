@@ -18,6 +18,7 @@ const SERVER_DOWN = 'Cannot reach the MIMS server. Is the backend running? (in t
 let testerMode = false;
 let lastExchange = null;
 const listeners = new Set();
+const signedOutListeners = new Set();
 
 export function setTesterMode(on) {
   testerMode = Boolean(on);
@@ -31,6 +32,12 @@ export function getLastExchange() {
 export function onExchange(listener) {
   listeners.add(listener);
   return () => listeners.delete(listener);
+}
+
+// The sign-in context subscribes here: a 401 from any page means the session ran out, so the start page comes back.
+export function onSignedOut(listener) {
+  signedOutListeners.add(listener);
+  return () => signedOutListeners.delete(listener);
 }
 
 function remember(exchange) {
@@ -70,6 +77,7 @@ async function request(method, path, body, { record = method !== 'GET' } = {}) {
     const debug = payload?.debug ?? null;
     // 503 is the backend saying the database is down; no JSON at all means the backend itself is not answering.
     const unreachable = response.status === 503 || !payload;
+    if (response.status === 401 && !path.startsWith('/auth/')) signedOutListeners.forEach((listener) => listener());
     if (record) remember({ sent, status: response.status, error: message, debug });
     throw new ApiError(message, { status: response.status, field: payload?.field ?? null, debug, unreachable });
   }
