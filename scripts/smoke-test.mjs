@@ -16,11 +16,11 @@ const RELOAD = 'Reload the database from the project folder:  mysql -u root -p <
 // What a fresh load_all.sql gives; using the app can only add rows, never remove them.
 const FRESH = { branches: 3, agents: 5, customers: 15, accounts: 13, fixedDeposits: 10, transactions: 230 };
 const ROUTINES = [
-  'FUNC_CALC_INTEREST', 'PROC_CHECK_BUSINESS_HOURS', 'PROC_CLOSE_FIXED_DEPOSIT', 'PROC_NEXT_TXN_REF',
+  'FUNC_CALC_INTEREST', 'PROC_CHECK_BUSINESS_HOURS', 'PROC_CHECK_CHANNEL', 'PROC_CLOSE_FIXED_DEPOSIT', 'PROC_NEXT_TXN_REF',
   'PROC_OPEN_FIXED_DEPOSIT', 'PROC_OPEN_SAVINGS_ACCOUNT', 'PROC_POST_FD_INTEREST', 'PROC_POST_SAVINGS_INTEREST',
   'PROC_PROCESS_DEPOSIT', 'PROC_PROCESS_FD_MATURITY', 'PROC_PROCESS_WITHDRAWAL', 'PROC_RUN_FD_INTEREST',
-  'PROC_RUN_SAVINGS_INTEREST', 'PROC_VERIFY_JOINT_HOLDERS', 'RPT_ACCOUNT_WISE_SUMMARY', 'RPT_AGENT_WISE_TRANSACTIONS',
-  'RPT_CUSTOMER_ACTIVITY', 'RPT_MONTHLY_INTEREST_DISTRIBUTION',
+  'PROC_RUN_SAVINGS_INTEREST', 'PROC_TRANSFER', 'PROC_VERIFY_JOINT_HOLDERS', 'RPT_ACCOUNT_WISE_SUMMARY',
+  'RPT_AGENT_WISE_TRANSACTIONS', 'RPT_CUSTOMER_ACTIVITY', 'RPT_MONTHLY_INTEREST_DISTRIBUTION',
 ];
 const VIEWS = ['VW_ACTIVE_FD_PAYOUT_SCHEDULE', 'VW_GAP_NIC_AT_18', 'VW_GAP_PLAN_OUTGROWN'];
 
@@ -261,7 +261,8 @@ async function checkServers(port) {
   else if (!home.down) report('FAIL', `${FRONTEND_URL}/ did not return the app page (answered ${home.status})`,
     'Is another program using port 5173? Stop it, then start the frontend again with  npm run dev.');
 
-  // The lookup and report routes arrive with the slices; until they are merged the backend answers 404.
+  // The lookup and report routes arrive with the slices; until they are merged the backend answers 404. They need a
+  // sign-in, so without one a working route answers 401.
   const apiChecks = [
     ['Lookup through the API', '/api/lookups/savings-plans', "Virun's lookups"],
     ['Report through the API', '/api/reports/account-wise?branchId=1', "Rukshi's reports"],
@@ -273,6 +274,7 @@ async function checkServers(port) {
     }
     const answer = await getPage(`${backend}${route}`);
     if (answer.status === 200 && Array.isArray(answer.body?.data)) report('PASS', `${label}: ${route} returned ${answer.body.data.length} rows`);
+    else if (answer.status === 401) report('PASS', `${label}: ${route} is there and asks for a sign-in first, as it should`);
     else if (answer.status === 404) report('SKIP', `${label}: ${route} is not merged yet (${slice} slice)`);
     else report('FAIL', `${label}: ${route} answered ${answer.status}: ${answer.body?.error ?? 'unexpected answer'}`,
       'Read the messages in the backend terminal for details.');

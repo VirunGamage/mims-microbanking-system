@@ -166,7 +166,7 @@ The shared tools every SQL test file uses. They live in their own *schema* (in M
 
 ### `tests/run_all.sql`
 
-It runs every SQL test with one command. `--table` asks the client to print boxed tables even though its input comes from a file. The script loads the database, loads the helpers, runs the five test files (account opening, deposits and withdrawals, fixed deposits, interest posting, triggers and reports) and then **loads the database again**. Tests cannot clean up after themselves: the triggers in `05_transaction_immutability.sql` refuse every UPDATE and DELETE on `TRANSACTION`, and the test accounts are held in place by their transactions. The second load brings back the plain sample data (and wipes anything entered through the app). The results survive because they are in `mims_test`, which `load_all.sql` does not touch. The last two tables give a count per suite and one overall line, which must say **ALL 166 CHECKS PASS**.
+It runs every SQL test with one command. `--table` asks the client to print boxed tables even though its input comes from a file. The script loads the database, loads the helpers, runs the five test files (account opening, deposits and withdrawals, fixed deposits, interest posting, triggers and reports) and then **loads the database again**. Tests cannot clean up after themselves: the triggers in `05_transaction_immutability.sql` refuse every UPDATE and DELETE on `TRANSACTION`, and the test accounts are held in place by their transactions. The second load brings back the plain sample data (and wipes anything entered through the app). The results survive because they are in `mims_test`, which `load_all.sql` does not touch. The last two tables give a count per suite and one overall line, which must say **ALL 213 CHECKS PASS**.
 
 ### `tests/test_open_savings_account.sql`
 
@@ -192,7 +192,7 @@ Each test was also shown to FAIL when its rule was deliberately broken on a thro
 
 - In `frontend/`, run `npm test` (the CSV and axis tests must pass) and `npm run build` (the pages must compile).
 - With MySQL running and both servers started, run the smoke test, `node scripts/smoke-test.mjs`, from the repository folder: every line should say PASS or SKIP.
-- Run `mysql -u root -p --table < tests/run_all.sql`: the last line must say ALL 166 CHECKS PASS.
+- Run `mysql -u root -p --table < tests/run_all.sql`: the last line must say ALL 213 CHECKS PASS.
 - I must replace every unfinished placeholder in my files and in this walkthrough with my own words.
 - I should read each file once more and make sure I can explain every line; this guide is a starting point, not a script.
 ## Questions and answers about these files

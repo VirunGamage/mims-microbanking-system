@@ -2,8 +2,10 @@
 // Both choices are kept in the browser (localStorage) so a reload keeps them. Uses GET /api/lookups/agents; if that list
 // can't be loaded, the header falls back to typing an agent ID.
 // Remembers which agent the app is acting as and whether the Agent or Tester view is on, and keeps both in the browser so a reload does not lose them.
+// An agent who signed in always acts as themselves in the Agent view; only an admin chooses the agent and the view.
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api, setTesterMode } from '../api/client.js';
+import { useAuth } from './AuthContext.jsx';
 
 const AgentContext = createContext(null);
 const AGENT_KEY = 'mims.agentId';
@@ -27,11 +29,16 @@ function writeStored(key, value) {
 }
 
 export function AgentProvider({ children }) {
+  const { user } = useAuth();
+  const agentLogin = user?.role === 'AGENT';
   const [agents, setAgents] = useState([]);
   const [agentsError, setAgentsError] = useState(null);
   const [agentsLoading, setAgentsLoading] = useState(true);
-  const [agentId, setAgentIdState] = useState(() => Number(readStored(AGENT_KEY)) || null);
-  const [viewMode, setViewModeState] = useState(() => (readStored(VIEW_KEY) === 'tester' ? 'tester' : 'agent'));
+  const [chosenAgentId, setAgentIdState] = useState(() => Number(readStored(AGENT_KEY)) || null);
+  // An admin starts in the Tester view unless they switched to the Agent view before
+  const [chosenView, setViewModeState] = useState(() => (readStored(VIEW_KEY) === 'agent' ? 'agent' : 'tester'));
+  const agentId = agentLogin ? user.agentId : chosenAgentId;
+  const viewMode = agentLogin ? 'agent' : chosenView;
 
   // Set during render, not in an effect, so the very first requests of a page already carry the Tester header.
   setTesterMode(viewMode === 'tester');
@@ -81,8 +88,9 @@ export function AgentProvider({ children }) {
       viewMode,
       setViewMode,
       isTester: viewMode === 'tester',
+      canChoose: !agentLogin, // the "Acting as" list and the Agent/Tester switch are for admins
     }),
-    [agents, agentsError, agentsLoading, agentId, setAgentId, viewMode, setViewMode],
+    [agents, agentsError, agentsLoading, agentId, setAgentId, viewMode, setViewMode, agentLogin],
   );
 
   return <AgentContext.Provider value={value}>{children}</AgentContext.Provider>;

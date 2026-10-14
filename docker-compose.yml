@@ -40,6 +40,8 @@ services:
       DB_USER: mims_app
       DB_PASSWORD: ${APP_DB_PASSWORD:-mims-app-local}
       DB_NAME: mims
+      # Signs the sign-in cookies. Empty = a new random secret at every start (everyone signs in again after a restart).
+      SESSION_SECRET: ${SESSION_SECRET:-}
       # E-mail notifications (README, "Email notifications"). Empty SMTP_HOST = off.
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-}

@@ -95,7 +95,7 @@ router.post('/:id/withdraw', async (req, res) => {
   }, 201);
 });
 
-function pageNumber(value, field, label, fallback, max) {
+export function pageNumber(value, field, label, fallback, max) {
   if (value === undefined || value === '') return fallback;
   const number = id(value, field, label);
   if (number > max) throw new ValidationError(field, `${label} must be at most ${max}`);
@@ -112,7 +112,11 @@ router.get('/:id/transactions', async (req, res) => {
 
   const [account] = await query('SELECT account_id FROM SAVINGS_ACCOUNT WHERE account_id = ?', [accountId]);
   if (!account) throw new HttpError(404, `There is no account with ID ${accountId}`);
+  sendData(req, res, await readPassbook(accountId, page, pageSize));
+});
 
+// One page of an account's passbook, newest first, with the running balance. Also used by online banking (routes/me.js).
+export async function readPassbook(accountId, page, pageSize) {
   const [counts] = await query(
     `SELECT COUNT(*) AS total,
             COALESCE(SUM(CASE WHEN transaction_type = 'WITHDRAWAL' AND DATE(txn_timestamp) = CURDATE()
@@ -137,7 +141,7 @@ router.get('/:id/transactions', async (req, res) => {
     [accountId, pageSize, (page - 1) * pageSize],
   );
   const total = Number(counts.total);
-  sendData(req, res, {
+  return {
     accountId,
     page,
     pageSize,
@@ -145,7 +149,7 @@ router.get('/:id/transactions', async (req, res) => {
     pages: Math.max(1, Math.ceil(total / pageSize)),
     withdrawnToday: counts.withdrawnToday,
     rows: rows.map((row) => ({ ...row, reviewFlagged: row.reviewFlag === 1 })),
-  });
-});
+  };
+}
 
 export default router;

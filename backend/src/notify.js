@@ -89,7 +89,7 @@ export function createNotifier({ settings, transport, lookup = databaseLookup })
     for (const holder of holders) {
       if (!holder.email) continue;
       const { subject, sentence, rows } = build(holder.accountNo);
-      let text = body(`Dear ${holder.name},`, sentence, [...rows, ['Processed by', agent]],
+      let text = body(`Dear ${holder.name},`, sentence, [...rows, ['Processed by', agent ?? 'Online banking']],
         'If you did not expect this, please contact your branch.');
       let to = holder.email;
       if (settings.demoInbox) {

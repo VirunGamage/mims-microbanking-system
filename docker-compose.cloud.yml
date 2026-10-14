@@ -3,7 +3,7 @@
 # What changes on the server:
 #   - "web" (Caddy) is the only way in from the internet: ports 80 and 443, with a free HTTPS certificate for
 #     PUBLIC_ADDRESS. The app and the database are no longer published on any port of the server.
-#   - Every page asks for APP_USERNAME and APP_PASSWORD.
+#   - Optional extra lock: with APP_USERNAME and APP_PASSWORD set, the browser asks for them before the start page.
 #   - The passwords have no defaults here: they must be in .env (copy cloud.env.example to .env).
 #   - MIMS_DAILY_INTEREST=on switches on the daily interest event when the database is first created.
 services:
@@ -18,8 +18,9 @@ services:
     ports: !reset []
     environment:
       DB_PASSWORD: ${APP_DB_PASSWORD:?Set APP_DB_PASSWORD in .env (copy cloud.env.example)}
-      APP_USERNAME: ${APP_USERNAME:?Set APP_USERNAME in .env (copy cloud.env.example)}
-      APP_PASSWORD: ${APP_PASSWORD:?Set APP_PASSWORD in .env (copy cloud.env.example)}
+      APP_USERNAME: ${APP_USERNAME:-}
+      APP_PASSWORD: ${APP_PASSWORD:-}
+      SESSION_SECRET: ${SESSION_SECRET:-}   # set it in .env, or everyone is signed out after each update
 
   web:
     image: caddy:2.11

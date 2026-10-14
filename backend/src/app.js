@@ -7,6 +7,7 @@ import express from 'express';
 import { loginFromEnv, loginGate } from './auth.js';
 import { errorHandler, notFound } from './errors.js';
 import { createApiRouter } from './routes/index.js';
+import { sessionReader, sessionSecretFromEnv } from './session.js';
 
 export async function createApp(options = {}) {
   const app = express();
@@ -14,6 +15,9 @@ export async function createApp(options = {}) {
   // On the cloud server every request needs the login from APP_USERNAME and APP_PASSWORD; without them this does nothing
   app.use(loginGate(options.login === undefined ? loginFromEnv() : options.login));
   app.use(express.json({ limit: '50kb' }));
+  // Who signed in (customer, agent or admin), read from the signed session cookie; routes/index.js decides who may use what
+  const sessionSecret = options.sessionSecret ?? sessionSecretFromEnv();
+  app.use(sessionReader(sessionSecret));
   // The Vite proxy makes the browser's calls same-origin, so CORS only matters if the frontend calls port 3001 directly.
   app.use(cors({ origin: ['http://localhost:5173', 'http://127.0.0.1:5173'] }));
 
@@ -22,7 +26,7 @@ export async function createApp(options = {}) {
       res.json({ data: { message: 'The MIMS API is running. Try /api/health, or open the app at http://localhost:5173' } });
     });
   }
-  app.use('/api', await createApiRouter(options));
+  app.use('/api', await createApiRouter({ ...options, sessionSecret }));
   if (options.staticDir) serveFrontend(app, options.staticDir);
   app.use(notFound);
   app.use(errorHandler);

@@ -367,7 +367,7 @@ npm run test:db
 mysql -u root -p --table < tests/run_all.sql
 ```
 
-Expect the last table to say **ALL 166 CHECKS PASS**. `run_all.sql` reloads the database before and after the tests, so it also wipes anything entered through the app.
+Expect the last table to say **ALL 213 CHECKS PASS**. `run_all.sql` reloads the database before and after the tests, so it also wipes anything entered through the app.
 
 ## Questions and answers about these files
 

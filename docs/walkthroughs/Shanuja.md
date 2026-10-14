@@ -152,7 +152,7 @@ It tests `PROC_PROCESS_DEPOSIT` and `PROC_PROCESS_WITHDRAWAL` (`procedures/01_de
 **The temporary fault trigger (DW15).** The file creates `test_fault_after_balance_update`, an AFTER UPDATE trigger on `SAVINGS_ACCOUNT` that always fails with "Test fault after the balance update". Then a deposit and a withdrawal are tried. Each fails at its last write, the balance UPDATE, after its `TRANSACTION` row was already inserted. The checks prove that the procedure's error handler (`DECLARE EXIT HANDLER FOR SQLEXCEPTION`) rolled everything back: the message is the fault's, the balance and the number of rows are unchanged, and `@allow_balance_update` is back to 0. The trigger is dropped straight afterwards, and also at the top of the file in case an earlier run stopped before the end.
 
 **How to run it**, from the repository folder:
-- The whole suite: `mysql -u root -p --table < tests/run_all.sql`. It reloads the database, runs all five SQL test files, reloads the database again so the app has the plain sample data, and should end with `ALL 166 CHECKS PASS`.
+- The whole suite: `mysql -u root -p --table < tests/run_all.sql`. It reloads the database, runs all five SQL test files, reloads the database again so the app has the plain sample data, and should end with `ALL 213 CHECKS PASS`.
 - Your file alone: `mysql -u root -p < tests/_helpers.sql`, then `mysql -u root -p --table < tests/test_deposit_withdraw.sql`. The last table should say `ALL PASS`. The test rows stay in `mims` (transactions are permanent), so afterwards reload the plain sample data with `mysql -u root -p < scripts/load_all.sql`.
 
 `--table` prints the results as boxed tables. Each test was also shown to FAIL when its rule was deliberately broken on a throw-away copy of the database, so a PASS means the rule really is being checked.
@@ -160,7 +160,7 @@ It tests `PROC_PROCESS_DEPOSIT` and `PROC_PROCESS_WITHDRAWAL` (`procedures/01_de
 ## Before you commit
 
 - In `frontend/`, run `npm test` (every test must pass) and `npm run build` (it must finish without errors).
-- After changing the SQL test file, run the whole SQL suite again and look for `ALL 166 CHECKS PASS`.
+- After changing the SQL test file, run the whole SQL suite again and look for `ALL 213 CHECKS PASS`.
 - Rewrite every `TODO(Shanuja)` line in your own words. There is one near the top of each of your files.
 - Make sure you can explain every line of every file above; this walkthrough is a map, not a script to read out.
 - Never commit `node_modules/` or `.env` (nor the `dist/` build output); `.gitignore` already leaves them out. Run `git status` (it lists the files you have changed or added) before committing, to check nothing else slipped in.

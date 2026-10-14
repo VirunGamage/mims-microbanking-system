@@ -12,10 +12,11 @@ import { id, money, oneOf, optionalId } from '../validate.js';
 
 const router = Router();
 const STATUSES = ['ACTIVE', 'MATURED', 'CLOSED'];
+const CHANNEL = 'BRANCH'; // the agent screens; online banking (routes/me.js) uses ONLINE
 
 // payoutDue: an ACTIVE FD whose payout date has come but whose interest hasn't been posted yet. The database refuses to close it until
 // that payout is posted, so the close dialog warns about it.
-const FD_COLUMNS = `
+export const FD_COLUMNS = `
   fd.fd_id AS fdId, fd.account_id AS accountId, sa.account_no AS accountNo, fd.amount, fd.interest_rate AS interestRate,
   fd.fd_plan_id AS fdPlanId, fp.term_name AS termName, fp.duration_days AS durationDays,
   fd.start_date AS startDate, fd.maturity_date AS maturityDate, fd.status, fd.next_payout_date AS nextPayoutDate,
@@ -29,16 +30,16 @@ const FD_COLUMNS = `
   (SELECT CONCAT(c.first_name, ' ', c.last_name) FROM ACCOUNT_HOLDER h JOIN CUSTOMER c ON c.customer_id = h.customer_id
     WHERE h.account_id = fd.account_id AND h.role = 'PRIMARY' LIMIT 1) AS primaryHolder`;
 
-const FROM = `
+export const FROM = `
   FROM FIXED_DEPOSIT fd
   JOIN SAVINGS_ACCOUNT sa ON sa.account_id = fd.account_id
   JOIN FD_PLAN fp ON fp.fd_plan_id = fd.fd_plan_id`;
 
-function shape(row) {
+export function shape(row) {
   return { ...row, payoutDue: row.payoutDue === 1 };
 }
 
-async function findFd(fdId) {
+export async function findFd(fdId) {
   const [row] = await query(`SELECT ${FD_COLUMNS} ${FROM} WHERE fd.fd_id = ?`, [fdId]);
   return row ? shape(row) : null;
 }
@@ -74,7 +75,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Rule messages from PROC_OPEN_FIXED_DEPOSIT, matched to the form field they are about (checked in this order).
-const OPEN_FIELDS = [
+export const OPEN_FIELDS = [
   [/amount|minimum/i, 'amount'],
   [/holder/i, 'customerId'],
   [/plan not found/i, 'fdPlanId'],
@@ -91,7 +92,7 @@ router.post('/', async (req, res) => {
   const amount = money(body.amount, 'amount', 'Fixed deposit amount');
   const agentId = id(body.agentId, 'agentId', 'Agent');
 
-  const params = [accountId, customerId, fdPlanId, amount, agentId];
+  const params = [accountId, customerId, fdPlanId, amount, CHANNEL, agentId];
   noteCall(res, 'PROC_OPEN_FIXED_DEPOSIT', params);
   let out;
   try {
@@ -115,7 +116,7 @@ router.post('/:id/close', async (req, res) => {
   const customerId = id(body.customerId, 'customerId', 'Holder');
   const agentId = id(body.agentId, 'agentId', 'Agent');
 
-  const params = [fdId, customerId, agentId];
+  const params = [fdId, customerId, CHANNEL, agentId];
   noteCall(res, 'PROC_CLOSE_FIXED_DEPOSIT', params);
   try {
     await callProc('PROC_CLOSE_FIXED_DEPOSIT', params);

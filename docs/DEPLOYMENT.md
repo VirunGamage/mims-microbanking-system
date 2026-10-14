@@ -9,14 +9,15 @@ What runs on the server:
 | Container | What it does |
 |---|---|
 | `web` (Caddy) | The only way in from the internet (ports 80 and 443). Gets a free HTTPS certificate and passes requests to the app |
-| `app` | The Node.js API and the React pages, exactly as in `docker compose up`. Asks every visitor for the login |
+| `app` | The Node.js API and the React pages, exactly as in `docker compose up`: the start page with the sign-in |
 | `db` | MySQL 8.0.46 with the MIMS database. Not reachable from the internet at all |
 
 `docker-compose.cloud.yml` adds these server settings on top of `docker-compose.yml`, so the laptop setup is unchanged.
 
-> **Only sample data goes on this server.** The app has no user accounts of its own, so the one shared login
-> (`APP_USERNAME` / `APP_PASSWORD`) is what stops strangers from making deposits. Share it only with the team and the
-> examiners, and delete the server after grading (step 10).
+> **Only sample data goes on this server.** Customers, agents and admins sign in on the start page, and the demo
+> accounts (README, *Sign in and online banking*) are shown there for the examiners, so anyone who finds the address can
+> try them. For an extra lock in front of the whole site, set `APP_USERNAME` / `APP_PASSWORD` (step 6). Delete the
+> server after grading (step 10).
 
 ## 1. Get Azure for Students
 
@@ -113,8 +114,9 @@ nano .env
 | Setting | What to put |
 |---|---|
 | `PUBLIC_ADDRESS` | The address from step 3, without `https://` |
-| `APP_USERNAME` / `APP_PASSWORD` | The login every visitor types (password at least 8 characters) |
-| `MYSQL_ROOT_PASSWORD` / `APP_DB_PASSWORD` | Two different new passwords for the database |
+| `SESSION_SECRET` | Long random text that signs the sign-in cookies, for example the output of `openssl rand -hex 32` |
+| `APP_USERNAME` / `APP_PASSWORD` | Optional extra lock: the browser asks for these before the start page (password at least 8 characters). Leave both empty to open the start page directly |
+| `MYSQL_ROOT_PASSWORD` / `APP_DB_PASSWORD` | Two different new passwords for the database, at least 8 characters each |
 | `MIMS_DAILY_INTEREST` | `off` while auto-shutdown is on (the server is switched off at 03:00 anyway), and use the Run interest button. `on` lets a server that runs day and night post interest by itself every day at 03:00 (Sri Lanka time) |
 | `SMTP_...` / `MAIL_...` | Optional, for e-mail notifications (README, *Email notifications*) |
 
@@ -179,7 +181,9 @@ To save typing, set this once per login: `alias mims='docker compose -f docker-c
 | The page does not load at all | In the portal: the server is **Running**, and **Networking** allows inbound ports 80 and 443 |
 | A certificate or "not secure" error | `PUBLIC_ADDRESS` in `.env` must be exactly the address from step 3; after fixing it: `mims up -d`. See `mims logs web` |
 | `502 Bad Gateway` | The app is still starting (up to a minute after a start or an update); `mims ps` shows it as healthy when it is ready |
-| The login box keeps coming back | The username or password does not match `.env` exactly |
+| The browser's login box keeps coming back | `APP_USERNAME` / `APP_PASSWORD` do not match `.env` exactly (or leave both empty) |
+| Signed out after every update | Set `SESSION_SECRET` in `.env` (step 6), then `mims up -d` |
+| Pages say an error after an update that changed `.sql` files | The database still has the old procedures: `mims down -v && mims up -d --build` (reloads the sample data) |
 | `required variable ... is missing a value` | A setting in `.env` is empty; fill it in (step 6) |
 | The Deploy workflow fails | The server was stopped (start it and run the workflow again), or check the three secrets (step 8) and that `ssh` from step 4 still works |
 | `ssh` says `UNPROTECTED PRIVATE KEY FILE` | Run the two `icacls` lines from step 4 again |
