@@ -1,5 +1,5 @@
 -- Fixed Deposit closure and maturity (REQ-FD-06, REQ-FD-08). Both pay the principal back into the savings account as an FD_CLOSURE transaction.
--- Needs mims_schema.sql, the trg_savings_balance_guard trigger (04_triggers.sql) and PROC_NEXT_TXN_REF and PROC_CHECK_BUSINESS_HOURS (01_deposit_withdrawal.sql).
+-- Needs mims_schema.sql, the trg_savings_balance_guard trigger (04_triggers.sql) and PROC_NEXT_TXN_REF and PROC_CHECK_CHANNEL (01_deposit_withdrawal.sql).
 -- PROC_PROCESS_FD_MATURITY has to run after PROC_RUN_FD_INTEREST (07_interest_posting.sql).
 
 USE mims;
@@ -9,15 +9,16 @@ DROP PROCEDURE IF EXISTS PROC_PROCESS_FD_MATURITY;
 
 DELIMITER $$
 
--- Closes an ACTIVE FD early. Only the PRIMARY holder can do it, during business hours, while the savings account is ACTIVE. 
+-- Closes an ACTIVE FD early. Only the PRIMARY holder can do it, while the savings account is ACTIVE (at a branch only during business hours
 -- The principal goes back to the savings balance and the interest of the unfinished 30 day cycle is forfeited, no penalty (REQ-FD-08).
---
+-- It is closed at a branch by an ACTIVE agent during business hours (channel BRANCH) or by the customer online at any hour (ONLINE or MOBILE, no agent), see PROC_CHECK_CHANNEL.
 -- Lock order: every procedure that touches both locks the savings account first and the FD second (PROC_OPEN_FIXED_DEPOSIT, PROC_POST_FD_INTEREST and PROC_PROCESS_FD_MATURITY too). 
 -- If two procedures took them in opposite orders, an open and a close on the same account at the same moment could each hold one lock and wait for the other and MySQL would kill one (deadlock).
 
 CREATE PROCEDURE PROC_CLOSE_FIXED_DEPOSIT (
     IN p_fd_id INT,
     IN p_customer_id INT,
+    IN p_channel VARCHAR(10),
     IN p_agent_id INT
 )
 BEGIN
@@ -42,7 +43,7 @@ BEGIN
 
     START TRANSACTION;
 
-    CALL PROC_CHECK_BUSINESS_HOURS();   -- Same business hours as every other money movement made by an agent
+    CALL PROC_CHECK_CHANNEL(p_channel, p_agent_id);   -- At a branch: business hours and an ACTIVE agent. Online: any hour, no agent
 
     -- An FD never moves to another account, so its account can be read before any lock is taken 
     SELECT account_id INTO v_account_id FROM FIXED_DEPOSIT WHERE fd_id = p_fd_id; 
@@ -99,12 +100,12 @@ BEGIN
     CALL PROC_NEXT_TXN_REF(v_ref_no);  -- Same TXN + 7 digits format as every other transaction.
 
     -- The transaction row goes in before the balance changes, the same order as every other procedure.
-    -- trg_transaction_bi refuses it here if the agent is not ACTIVE and the handler undoes the FD update above.
+    -- If anything fails from here on, the handler undoes the FD update above as well.
     INSERT INTO `TRANSACTION` (
         transaction_type, amount, reference_no, channel,
         account_id, processed_by_agent_id, fd_id
     ) VALUES (
-        'FD_CLOSURE', v_amount, v_ref_no, 'BRANCH',
+        'FD_CLOSURE', v_amount, v_ref_no, p_channel,
         v_account_id, p_agent_id, p_fd_id
     );
     -- Guard flag is on only for this one UPDATE, see PROC_PROCESS_DEPOSIT. 
