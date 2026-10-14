@@ -29,11 +29,11 @@ CALL PROC_OPEN_SAVINGS_ACCOUNT(@adult, NULL, 10000.00, @agent, @late, @no, @ref)
 CALL PROC_OPEN_SAVINGS_ACCOUNT(@child, NULL, 0.01, @agent, @tiny, @no, @ref);           -- Children plan, earns 0.00
 CALL PROC_OPEN_SAVINGS_ACCOUNT(@adult, NULL, 10000.00, @agent, @frozen, @no, @ref);
 CALL PROC_OPEN_SAVINGS_ACCOUNT(@adult, NULL, 60000.00, @agent, @fd_acc, @no, @ref);
-CALL PROC_OPEN_FIXED_DEPOSIT(@fd_acc, @adult, @six_months, 40000.00, @agent, @fd, @ref, @bal);
+CALL PROC_OPEN_FIXED_DEPOSIT(@fd_acc, @adult, @six_months, 40000.00, 'BRANCH', @agent, @fd, @ref, @bal);
 CALL PROC_OPEN_SAVINGS_ACCOUNT(@adult, NULL, 60000.00, @agent, @fd2_acc, @no, @ref);
-CALL PROC_OPEN_FIXED_DEPOSIT(@fd2_acc, @adult, @six_months, 40000.00, @agent, @fd2, @ref, @bal);
+CALL PROC_OPEN_FIXED_DEPOSIT(@fd2_acc, @adult, @six_months, 40000.00, 'BRANCH', @agent, @fd2, @ref, @bal);
 CALL PROC_OPEN_SAVINGS_ACCOUNT(@adult, NULL, 60000.00, @agent, @fd3_acc, @no, @ref);
-CALL PROC_OPEN_FIXED_DEPOSIT(@fd3_acc, @adult, @six_months, 40000.00, @agent, @fd3, @ref, @bal);
+CALL PROC_OPEN_FIXED_DEPOSIT(@fd3_acc, @adult, @six_months, 40000.00, 'BRANCH', @agent, @fd3, @ref, @bal);
 UPDATE SAVINGS_ACCOUNT SET status = 'FROZEN' WHERE account_id IN (@frozen, @fd3_acc);
 
 

@@ -1,6 +1,6 @@
 -- Opens a Fixed Deposit (REQ-FD-03, REQ-FD-09). The FD row, the FD_OPEN transaction and the balance debit are saved together or not at all.
 -- Needs mims_schema.sql, the trg_savings_balance_guard trigger (04_triggers.sql) and the helper procedures
--- PROC_CHECK_BUSINESS_HOURS and PROC_NEXT_TXN_REF (01_deposit_withdrawal.sql) to be in place.
+-- PROC_CHECK_BUSINESS_HOURS, PROC_CHECK_CHANNEL and PROC_NEXT_TXN_REF (01_deposit_withdrawal.sql) to be in place.
 
 USE mims;
 
@@ -12,20 +12,20 @@ DELIMITER $$
 -- ACTIVE, the customer is the PRIMARY holder, the account has no other ACTIVE FD and the balance after the debit stays at or above
 -- the plan minimum. If any rule fails nothing is saved and an error is raised.
 -- The FD starts today, its rate is copied from FD_PLAN, maturity is today + the plan's duration and the first payout is one cycle away.
--- It is always a BRANCH transaction, so an ACTIVE agent is required.
+-- It is opened at a branch by an ACTIVE agent during business hours (channel BRANCH) or by the customer online at any hour (ONLINE or MOBILE, no agent), see PROC_CHECK_CHANNEL.
 -- Gives back the new fd_id, the reference number of the FD_OPEN transaction and the new savings balance.
 CREATE PROCEDURE PROC_OPEN_FIXED_DEPOSIT (
     IN  p_account_id    INT,
     IN  p_customer_id   INT,
     IN  p_fd_plan_id    INT,
     IN  p_amount        DECIMAL(14,2),
+    IN  p_channel       VARCHAR(10),
     IN  p_agent_id      INT,
     OUT p_fd_id         INT,
     OUT p_reference_no  VARCHAR(30),
     OUT p_new_balance   DECIMAL(14,2)
 )
 BEGIN
-    DECLARE v_agent_status  VARCHAR(12) DEFAULT NULL;
     DECLARE v_status        VARCHAR(10) DEFAULT NULL;
     DECLARE v_balance       DECIMAL(14,2);
     DECLARE v_min_balance   DECIMAL(12,2);
@@ -50,15 +50,7 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Fixed Deposit amount must be greater than zero';
     END IF;
 
-    CALL PROC_CHECK_BUSINESS_HOURS();   -- Same business hours as a deposit or withdrawal
-
-    SELECT status INTO v_agent_status FROM AGENT WHERE agent_id = p_agent_id;
-    IF v_agent_status IS NULL THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Agent not found';
-    END IF;
-    IF v_agent_status <> 'ACTIVE' THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Processing agent is not ACTIVE';
-    END IF;
+    CALL PROC_CHECK_CHANNEL(p_channel, p_agent_id);   -- At a branch: business hours and an ACTIVE agent. Online: any hour, no agent
 
     -- OF sa locks only the account row, so nobody else can change this balance or open an FD on it until the transaction ends.
     -- The account is locked before any FD row, the order every procedure follows (see PROC_CLOSE_FIXED_DEPOSIT)
@@ -128,7 +120,7 @@ BEGIN
         (transaction_type, amount, reference_no, channel, review_flag,
          account_id, processed_by_agent_id, fd_id)
     VALUES
-        ('FD_OPEN', p_amount, p_reference_no, 'BRANCH', 0,
+        ('FD_OPEN', p_amount, p_reference_no, p_channel, 0,
          p_account_id, p_agent_id, p_fd_id);
 
     -- Guard flag is on only for this one UPDATE, see PROC_PROCESS_DEPOSIT

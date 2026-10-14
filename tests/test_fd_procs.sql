@@ -40,7 +40,7 @@ UPDATE SAVINGS_ACCOUNT SET status = 'FROZEN' WHERE account_id = @frozen;
 
 -- FD01: opening an FD
 SET @fd = NULL, @ref = NULL, @bal = NULL;
-CALL mims_test.try_sql("CALL mims.PROC_OPEN_FIXED_DEPOSIT(@acc, @primary, @six_months, 40000.00, @agent, @fd, @ref, @bal)",
+CALL mims_test.try_sql("CALL mims.PROC_OPEN_FIXED_DEPOSIT(@acc, @primary, @six_months, 40000.00, 'BRANCH', @agent, @fd, @ref, @bal)",
                        @state, @message);
 CALL mims_test.check_that(@suite, 'FD01', 'Opening a 40,000.00 FD takes it out of the savings balance',
     @state = '00000' AND @bal = 60000.00 AND (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @acc) = 60000.00,
@@ -60,20 +60,20 @@ CALL mims_test.check_that(@suite, 'FD01', 'It is logged as one FD_OPEN transacti
 -- FD02: only one ACTIVE FD per account
 SET @before = (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @acc);
 CALL mims_test.expect_refusal(@suite, 'FD02', 'A second FD on the same account is refused while the first is ACTIVE',
-    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@acc, @primary, @six_months, 1000.00, @agent, @fd_x, @ref, @bal)", @one_active);
+    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@acc, @primary, @six_months, 1000.00, 'BRANCH', @agent, @fd_x, @ref, @bal)", @one_active);
 CALL mims_test.check_that(@suite, 'FD02', '... and nothing is saved',
     (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @acc) = @before
     AND (SELECT COUNT(*) FROM FIXED_DEPOSIT WHERE account_id = @acc) = 1, 'the balance or the FD count changed');
 
 -- FD03: who can open an FD
 CALL mims_test.expect_refusal(@suite, 'FD03', 'Someone who is not a holder cannot open an FD',
-    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@spare, @stranger, @six_months, 1000.00, @agent, @fd_x, @ref, @bal)",
+    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@spare, @stranger, @six_months, 1000.00, 'BRANCH', @agent, @fd_x, @ref, @bal)",
     'Customer is not a holder of this account');
 CALL mims_test.expect_refusal(@suite, 'FD03', 'The SECONDARY holder of a joint account cannot open an FD',
-    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@joint, @second, @six_months, 1000.00, @agent, @fd_x, @ref, @bal)",
+    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@joint, @second, @six_months, 1000.00, 'BRANCH', @agent, @fd_x, @ref, @bal)",
     'Only the PRIMARY holder can open a Fixed Deposit');
 SET @fd_joint = NULL;
-CALL mims_test.try_sql("CALL mims.PROC_OPEN_FIXED_DEPOSIT(@joint, @primary, @six_months, 10000.00, @agent, @fd_joint, @ref, @bal)",
+CALL mims_test.try_sql("CALL mims.PROC_OPEN_FIXED_DEPOSIT(@joint, @primary, @six_months, 10000.00, 'BRANCH', @agent, @fd_joint, @ref, @bal)",
                        @state, @message);
 CALL mims_test.check_that(@suite, 'FD03', 'The PRIMARY holder of a joint account can open an FD',
     @state = '00000' AND (SELECT status FROM FIXED_DEPOSIT WHERE fd_id = @fd_joint) = 'ACTIVE', CONCAT_WS(' ', @state, @message));
@@ -83,7 +83,7 @@ CALL mims_test.clock_at('2026-11-04 10:00:00');
 UPDATE FD_PLAN SET interest_rate = 13.50 WHERE fd_plan_id = @six_months;
 CALL mims_test.try_sql("CALL mims.PROC_POST_FD_INTEREST(@fd, '2026-11-04', @n)", @state, @message);
 SET @fd_new = NULL;
-CALL mims_test.try_sql("CALL mims.PROC_OPEN_FIXED_DEPOSIT(@spare, @primary, @six_months, 10000.00, @agent, @fd_new, @ref, @bal)",
+CALL mims_test.try_sql("CALL mims.PROC_OPEN_FIXED_DEPOSIT(@spare, @primary, @six_months, 10000.00, 'BRANCH', @agent, @fd_new, @ref, @bal)",
                        @state2, @message2);
 UPDATE FD_PLAN SET interest_rate = 13.00 WHERE fd_plan_id = @six_months;
 CALL mims_test.check_that(@suite, 'FD04', 'After the plan rate changes, an existing FD is still paid at its own rate (427.40 at 13.00%)',
@@ -97,9 +97,9 @@ CALL mims_test.clock_at('2026-10-05 10:00:00');
 
 -- FD05: the savings balance cannot drop below the plan minimum (Adult 1,000.00). @min_acc holds 50,000.00.
 CALL mims_test.expect_refusal(@suite, 'FD05', 'An FD of 49,000.01 (would leave 999.99) is refused',
-    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@min_acc, @primary, @six_months, 49000.01, @agent, @fd_x, @ref, @bal)", @below_min);
+    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@min_acc, @primary, @six_months, 49000.01, 'BRANCH', @agent, @fd_x, @ref, @bal)", @below_min);
 SET @fd_min = NULL;
-CALL mims_test.try_sql("CALL mims.PROC_OPEN_FIXED_DEPOSIT(@min_acc, @primary, @six_months, 49000.00, @agent, @fd_min, @ref, @bal)",
+CALL mims_test.try_sql("CALL mims.PROC_OPEN_FIXED_DEPOSIT(@min_acc, @primary, @six_months, 49000.00, 'BRANCH', @agent, @fd_min, @ref, @bal)",
                        @state, @message);
 CALL mims_test.check_that(@suite, 'FD05', 'An FD that leaves exactly the minimum is accepted',
     @state = '00000' AND (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @min_acc) = 1000.00,
@@ -107,34 +107,34 @@ CALL mims_test.check_that(@suite, 'FD05', 'An FD that leaves exactly the minimum
 
 -- FD06 to FD10: the other checks when opening
 CALL mims_test.expect_refusal(@suite, 'FD06', 'An FD on a FROZEN account is refused',
-    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@frozen, @stranger, @six_months, 1000.00, @agent, @fd_x, @ref, @bal)", 'Account is not active');
+    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@frozen, @stranger, @six_months, 1000.00, 'BRANCH', @agent, @fd_x, @ref, @bal)", 'Account is not active');
 CALL mims_test.expect_refusal(@suite, 'FD06', 'An FD on an account that does not exist is refused',
-    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(999999, @primary, @six_months, 1000.00, @agent, @fd_x, @ref, @bal)", 'Account not found');
+    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(999999, @primary, @six_months, 1000.00, 'BRANCH', @agent, @fd_x, @ref, @bal)", 'Account not found');
 CALL mims_test.expect_refusal(@suite, 'FD07', 'An FD of 0.00 is refused',
-    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@acc, @primary, @six_months, 0.00, @agent, @fd_x, @ref, @bal)",
+    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@acc, @primary, @six_months, 0.00, 'BRANCH', @agent, @fd_x, @ref, @bal)",
     'Fixed Deposit amount must be greater than zero');
 CALL mims_test.expect_refusal(@suite, 'FD07', 'An FD with no amount is refused',
-    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@acc, @primary, @six_months, NULL, @agent, @fd_x, @ref, @bal)",
+    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@acc, @primary, @six_months, NULL, 'BRANCH', @agent, @fd_x, @ref, @bal)",
     'Fixed Deposit amount must be greater than zero');
 CALL mims_test.clock_at('2026-10-10 10:00:00');
 CALL mims_test.expect_refusal(@suite, 'FD08', 'Opening an FD on a Saturday is refused',
-    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@spare, @primary, @six_months, 1000.00, @agent, @fd_x, @ref, @bal)", @hours);
+    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@spare, @primary, @six_months, 1000.00, 'BRANCH', @agent, @fd_x, @ref, @bal)", @hours);
 CALL mims_test.clock_at('2026-10-05 16:00:01');
 CALL mims_test.expect_refusal(@suite, 'FD08', 'Opening an FD at 16:00:01 is refused',
-    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@spare, @primary, @six_months, 1000.00, @agent, @fd_x, @ref, @bal)", @hours);
+    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@spare, @primary, @six_months, 1000.00, 'BRANCH', @agent, @fd_x, @ref, @bal)", @hours);
 CALL mims_test.clock_at('2026-10-05 10:00:00');
 CALL mims_test.expect_refusal(@suite, 'FD09', 'An FD by an agent who is ON_LEAVE is refused',
-    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@spare, @primary, @six_months, 1000.00, @agent_on_leave, @fd_x, @ref, @bal)",
+    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@spare, @primary, @six_months, 1000.00, 'BRANCH', @agent_on_leave, @fd_x, @ref, @bal)",
     'Processing agent is not ACTIVE');
 CALL mims_test.expect_refusal(@suite, 'FD09', 'An FD by an agent who does not exist is refused',
-    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@spare, @primary, @six_months, 1000.00, 999999, @fd_x, @ref, @bal)", 'Agent not found');
+    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@spare, @primary, @six_months, 1000.00, 'BRANCH', 999999, @fd_x, @ref, @bal)", 'Agent not found');
 CALL mims_test.expect_refusal(@suite, 'FD10', 'An FD plan that does not exist is refused',
-    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@acc, @primary, 99, 1000.00, @agent, @fd_x, @ref, @bal)", 'Fixed Deposit plan not found');
+    "CALL mims.PROC_OPEN_FIXED_DEPOSIT(@acc, @primary, 99, 1000.00, 'BRANCH', @agent, @fd_x, @ref, @bal)", 'Fixed Deposit plan not found');
 
 -- FD11: closing early. The 11-04 payout was posted in FD04; on 20 November the half-finished cycle earns nothing.
 CALL mims_test.clock_at('2026-11-20 10:00:00');
 SET @before = (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @acc);
-CALL mims_test.try_sql("CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd, @primary, @agent)", @state, @message);
+CALL mims_test.try_sql("CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd, @primary, 'BRANCH', @agent)", @state, @message);
 CALL mims_test.check_that(@suite, 'FD11', 'Closing early marks the FD CLOSED today and stops its payouts',
     @state = '00000'
     AND (SELECT COUNT(*) FROM FIXED_DEPOSIT
@@ -152,13 +152,13 @@ CALL mims_test.check_that(@suite, 'FD11', 'No interest is paid for the unfinishe
 
 -- FD12 and FD13: who can close, and what
 CALL mims_test.expect_refusal(@suite, 'FD12', 'The SECONDARY holder of a joint account cannot close its FD',
-    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd_joint, @second, @agent)", 'Only the PRIMARY holder can close this Fixed Deposit');
+    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd_joint, @second, 'BRANCH', @agent)", 'Only the PRIMARY holder can close this Fixed Deposit');
 CALL mims_test.expect_refusal(@suite, 'FD12', 'Someone who is not a holder cannot close it',
-    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd_joint, @stranger, @agent)", 'Only the PRIMARY holder can close this Fixed Deposit');
+    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd_joint, @stranger, 'BRANCH', @agent)", 'Only the PRIMARY holder can close this Fixed Deposit');
 CALL mims_test.expect_refusal(@suite, 'FD13', 'An FD that is already CLOSED cannot be closed again',
-    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd, @primary, @agent)", 'Fixed Deposit is not ACTIVE');
+    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd, @primary, 'BRANCH', @agent)", 'Fixed Deposit is not ACTIVE');
 CALL mims_test.expect_refusal(@suite, 'FD13', 'An FD that does not exist cannot be closed',
-    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(999999, @primary, @agent)", 'Fixed Deposit not found');
+    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(999999, @primary, 'BRANCH', @agent)", 'Fixed Deposit not found');
 
 -- FD14: all or nothing. PROC_CLOSE_FIXED_DEPOSIT updates the FD before it inserts the FD_CLOSURE row; an ON_LEAVE agent is refused at that insert (trg_transaction_bi), so the FD update must be undone.
 -- The payouts due by today are posted first, so these closes test only their own rule.
@@ -166,7 +166,7 @@ CALL PROC_POST_FD_INTEREST(@fd_min, '2026-11-20', @n);
 CALL PROC_POST_FD_INTEREST(@fd_joint, '2026-11-20', @n);
 SET @before = (SELECT balance FROM SAVINGS_ACCOUNT WHERE account_id = @min_acc);
 CALL mims_test.expect_refusal(@suite, 'FD14', 'Closing with an agent who is ON_LEAVE is refused',
-    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd_min, @primary, @agent_on_leave)", 'Processing agent is not ACTIVE');
+    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd_min, @primary, 'BRANCH', @agent_on_leave)", 'Processing agent is not ACTIVE');
 CALL mims_test.check_that(@suite, 'FD14', '... and the FD and the balance are left exactly as they were',
     @allow_balance_update = 0
     AND (SELECT COUNT(*) FROM FIXED_DEPOSIT
@@ -179,18 +179,18 @@ CALL mims_test.check_that(@suite, 'FD14', '... and the FD and the balance are le
 -- FD15: closing follows the same business hours as opening
 CALL mims_test.clock_at('2026-11-21 10:00:00');
 CALL mims_test.expect_refusal(@suite, 'FD15', 'Closing an FD on a Saturday is refused', 
-    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd_joint, @primary, @agent)", @hours); 
+    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd_joint, @primary, 'BRANCH', @agent)", @hours); 
 CALL mims_test.clock_at('2026-11-20 16:00:01'); 
 CALL mims_test.expect_refusal(@suite, 'FD15', 'Closing an FD at 16:00:01 is refused', 
-    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd_joint, @primary, @agent)", @hours); 
+    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd_joint, @primary, 'BRANCH', @agent)", @hours); 
 CALL mims_test.clock_at('2026-11-20 15:00:00'); 
 CALL mims_test.expect_ok(@suite, 'FD15', 'Closing it on a weekday at 15:00 works',
-    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd_joint, @primary, @agent)");
+    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd_joint, @primary, 'BRANCH', @agent)");
 
 -- FD16: no money moves into a FROZEN account, so an FD on one cannot be closed. @spare (with @fd_new from FD04) is frozen only for this test. 
 UPDATE SAVINGS_ACCOUNT SET status = 'FROZEN' WHERE account_id = @spare; 
 CALL mims_test.expect_refusal(@suite, 'FD16', 'Closing an FD whose savings account is FROZEN is refused', 
-    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd_new, @primary, @agent)", 'Account is not active'); 
+    "CALL mims.PROC_CLOSE_FIXED_DEPOSIT(@fd_new, @primary, 'BRANCH', @agent)", 'Account is not active'); 
 UPDATE SAVINGS_ACCOUNT SET status = 'ACTIVE' WHERE account_id = @spare; 
 CALL mims_test.check_that(@suite, 'FD16', '... and the FD is still ACTIVE', 
     (SELECT status FROM FIXED_DEPOSIT WHERE fd_id = @fd_new) = 'ACTIVE', 'the FD was closed');
