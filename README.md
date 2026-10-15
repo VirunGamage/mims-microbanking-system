@@ -271,10 +271,6 @@ A pull request is merged only when all three jobs show a green tick (the Checks 
 | Sureshkumar Archchuthan | Transaction and fixed-deposit sample data; interest-posting, trigger and report SQL tests; transfers (`PROC_TRANSFER`, `09_transfer.sql`); GitHub Actions CI |
 | Sameera Senanayaka | Branch, agent, customer and account sample data; deposit and withdrawal procedures; online channel rule (`PROC_CHECK_CHANNEL`) |
 
-## AI contributions
-
-An AI coding assistant drafted the web app (the Node.js/Express backend and the React frontend), the automated tests (SQL tests, backend and frontend tests), the database load and app-user scripts, the Data checks views, the smoke test, and drafts of the documents in `docs/`. Team members reviewed this work, ran and tested it against the database, and committed it under their own names; each can explain the parts below.
-
 | Person | Reviewed, tested and committed |
 |---|---|
 | Virun Gamage | Repository setup and README; backend core and tests; customer and account API; frontend setup; smoke test; review fixes; Docker, e-mail notifications, cloud hosting and deploy workflow; sign-in, online banking pages and My reports |
