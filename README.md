@@ -271,7 +271,8 @@ A pull request is merged only when all three jobs show a green tick (the Checks 
 | Sureshkumar Archchuthan | Transaction and fixed-deposit sample data; interest-posting, trigger and report SQL tests; transfers (`PROC_TRANSFER`, `09_transfer.sql`); GitHub Actions CI |
 | Sameera Senanayaka | Branch, agent, customer and account sample data; deposit and withdrawal procedures; online channel rule (`PROC_CHECK_CHANNEL`) |
 
-| Person | Reviewed, tested and committed |
+## Team Member Contributions (frontend & backend)
+| Person | owns |
 |---|---|
 | Virun Gamage | Repository setup and README; backend core and tests; customer and account API; frontend setup; smoke test; review fixes; Docker, e-mail notifications, cloud hosting and deploy workflow; sign-in, online banking pages and My reports |
 | Shanujah Sivakumar | Frontend core (design, shared components, page frame, Home); fixed deposits API and screens; deposit/withdrawal SQL tests |
